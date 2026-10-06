@@ -17,11 +17,37 @@ func TestVisualSelectAndYank(t *testing.T) {
 	m, _ = press(m, "4")
 	m, _ = press(m, "j")
 	m, _ = press(m, "v")
-	if !m.visual || m.anchor != 4 || m.cursor != 4 {
-		t.Fatalf("v must start at the top visible line: %v %d %d", m.visual, m.anchor, m.cursor)
+	if mid := 4 + (m.viewport.Height()-1)/2; !m.visual || m.selecting || m.anchor != mid || m.cursor != mid {
+		t.Fatalf("v must put the cursor mid-screen at %d: %v %v %d %d", mid, m.visual, m.selecting, m.anchor, m.cursor)
 	}
+	// Before the anchor is down, motions move a one-line cursor.
+	m, _ = press(m, "3")
+	m, _ = press(m, "j")
+	if m.anchor != m.cursor || m.selecting {
+		t.Fatalf("j before v must not select: %d %d", m.anchor, m.cursor)
+	}
+	if footer := ansi.Strip(m.View().Content); !strings.Contains(footer, "VISUAL") || strings.Contains(footer, "VISUAL 1 line") || !strings.Contains(footer, "v select") {
+		t.Fatalf("footer must show the cursor step:\n%s", footer)
+	}
+	m, _ = press(m, "L")
+	if bottom := 4 + m.viewport.Height() - 1; m.cursor != bottom || m.viewport.YOffset() != 4 {
+		t.Fatalf("L: cursor %d, want %d without scrolling", m.cursor, bottom)
+	}
+	m, _ = press(m, "H")
+	if m.cursor != 4 || m.anchor != 4 {
+		t.Fatalf("H: cursor %d anchor %d", m.cursor, m.anchor)
+	}
+	m, _ = press(m, "v")
 	m, _ = press(m, "2")
 	m, _ = press(m, "j")
+	if !m.selecting || m.anchor != 4 || m.cursor != 6 {
+		t.Fatalf("v must drop the anchor: %v %d %d", m.selecting, m.anchor, m.cursor)
+	}
+	m, _ = press(m, "o")
+	if m.anchor != 6 || m.cursor != 4 {
+		t.Fatalf("o must swap the ends: %d %d", m.anchor, m.cursor)
+	}
+	m, _ = press(m, "o")
 	footer := ansi.Strip(m.View().Content)
 	if !strings.Contains(footer, "VISUAL 3 lines") || !strings.Contains(footer, "y yank") {
 		t.Fatalf("footer lacks the mode and count:\n%s", footer)
@@ -37,6 +63,7 @@ func TestVisualSelectAndYank(t *testing.T) {
 	// Selecting exactly a code block's lines yields its source, upwards too.
 	b := m.doc.codeBlocks()[1]
 	m.startVisual(b.end - 1)
+	m, _ = press(m, "v")
 	for range b.end - 1 - b.start {
 		m, _ = press(m, "k")
 	}
@@ -73,12 +100,15 @@ func TestVisualSelectAndYank(t *testing.T) {
 		t.Fatal("h in visual mode must not close the article")
 	}
 
-	// esc and q leave visual mode before closing the article.
-	for _, key := range []string{"esc", "q", "v"} {
+	// esc and q leave visual mode before closing the article, from either
+	// step; v leaves once the anchor is down.
+	for _, keys := range [][]string{{"esc"}, {"q"}, {"v", "esc"}, {"v", "q"}, {"v", "v"}} {
 		m.startVisual(0)
-		m, _ = press(m, key)
+		for _, key := range keys {
+			m, _ = press(m, key)
+		}
 		if m.visual || m.article == nil {
-			t.Fatalf("%s must only leave visual mode", key)
+			t.Fatalf("%v must only leave visual mode", keys)
 		}
 	}
 	m, _ = press(m, "esc")
@@ -96,9 +126,9 @@ func TestVisualDrawing(t *testing.T) {
 			m.open(p)
 			cached := m.viewport.GetContent()
 			before := strings.Split(m.viewport.View(), "\n")
-			m, _ = press(m, "v")
-			m, _ = press(m, "3")
-			m, _ = press(m, "j")
+			for _, key := range []string{"v", "H", "v", "3", "j"} {
+				m, _ = press(m, key)
+			}
 			assertWidth(t, m.View().Content, width)
 			after := strings.Split(m.decorate(m.viewport.View()), "\n")
 			for i := range after {

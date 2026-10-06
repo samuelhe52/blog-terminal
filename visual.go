@@ -9,12 +9,21 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// startVisual selects line, the start of a line-wise selection. Motions then
-// move the cursor end while the anchor stays put.
+// startVisual puts the visual cursor on line. Until v drops the anchor,
+// motions move the cursor alone; after that they extend the selection from
+// the anchor.
 func (m *model) startVisual(line int) {
 	line = min(max(0, line), max(0, m.viewport.TotalLineCount()-1))
-	m.visual, m.anchor, m.cursor = true, line, line
+	m.visual, m.selecting, m.anchor, m.cursor = true, false, line, line
 	m.followCursor()
+}
+
+// screenLine is the line at fraction num/den of the visible part of the
+// document: 0 is the top line, 1/2 the middle, 1/1 the bottom.
+func (m model) screenLine(num, den int) int {
+	v := m.viewport
+	shown := max(1, min(v.Height(), v.TotalLineCount()-v.YOffset()))
+	return v.YOffset() + (shown-1)*num/den
 }
 
 // visualKey handles a key in visual mode. Keys it doesn't handle, such as ?
@@ -50,11 +59,33 @@ func (m *model) visualKey(key string, count int, explicit bool) (tea.Cmd, bool) 
 		if explicit {
 			m.cursor = count - 1
 		}
+	case "H":
+		m.cursor = m.screenLine(0, 1)
+	case "M":
+		m.cursor = m.screenLine(1, 2)
+	case "L":
+		m.cursor = m.screenLine(1, 1)
+	case "n", "N":
+		cmd := m.stepMatch(count, key == "n")
+		if line, ok := m.currentMatchLine(); ok {
+			m.cursor = line
+		}
+		m.moveCursor()
+		return cmd, true
+	case "o":
+		m.anchor, m.cursor = m.cursor, m.anchor
 	case "y":
 		from, to := min(m.anchor, m.cursor), max(m.anchor, m.cursor)
 		m.visual = false
 		return m.copy(m.doc.yank(from, to), plural(to-from+1, "Copied %d line", "Copied %d lines")), true
-	case "v", "V", "esc", "q":
+	case "v", "V":
+		if m.selecting {
+			m.visual = false
+		} else {
+			m.selecting = true
+		}
+		return nil, true
+	case "esc", "q":
 		m.visual = false
 		return nil, true
 	case "?", "ctrl+l", "t":
@@ -62,9 +93,18 @@ func (m *model) visualKey(key string, count int, explicit bool) (tea.Cmd, bool) 
 	default:
 		return nil, true
 	}
-	m.cursor = min(max(0, m.cursor), last)
-	m.followCursor()
+	m.moveCursor()
 	return nil, true
+}
+
+// moveCursor keeps the cursor in the document and on screen. Before the
+// anchor is dropped, the anchor moves with it.
+func (m *model) moveCursor() {
+	m.cursor = min(max(0, m.cursor), max(0, m.viewport.TotalLineCount()-1))
+	if !m.selecting {
+		m.anchor = m.cursor
+	}
+	m.followCursor()
 }
 
 // followCursor scrolls just enough to show the cursor line.
@@ -85,10 +125,14 @@ func plural(n int, one, many string) string {
 }
 
 // readerStatus starts the reader's footer: the scroll position, or in
-// visual mode the mode and the number of selected lines.
+// visual mode the mode and, once the anchor is down, the number of selected
+// lines.
 func (m model) readerStatus() string {
 	if !m.visual {
 		return fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100) + m.searchStatus()
+	}
+	if !m.selecting {
+		return m.accent("VISUAL") + "  "
 	}
 	n := max(m.anchor, m.cursor) - min(m.anchor, m.cursor) + 1
 	return m.accent("VISUAL") + " " + m.muted(plural(n, "%d line", "%d lines")) + "  "
