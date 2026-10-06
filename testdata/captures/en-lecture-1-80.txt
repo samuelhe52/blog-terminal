@@ -53,4 +53,4 @@ Lecture 1: Knowledge
   https://example.com/course/lecture-1.                                       
 ────────────────────────────────────────────────────────────────────────────────
 https://blog.konakona.dev/en/posts/course-notes/lecture-1-knowledge/
-  0%  j/k · h back · ? help · y link · ^D/^U · gg/G · ^L lang · t theme
+  0%  j/k · h back · ? help · y link · s source · ^D/^U · gg/G · ^L lang

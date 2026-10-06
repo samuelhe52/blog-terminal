@@ -23,6 +23,8 @@ type model struct {
 	folderFallback  bool
 	article         *post
 	articleFallback bool
+	source          bool        // showing the article's Markdown source
+	codeBlocks      []codeBlock // fenced blocks on screen, in source mode
 	width, height   int
 	viewport        viewport.Model
 	filter          textinput.Model
@@ -99,6 +101,7 @@ func (m model) palette() theme {
 func (m *model) closeArticle() {
 	m.article = nil
 	m.err = nil
+	m.source, m.codeBlocks = false, nil
 	m.refreshListing()
 }
 
@@ -127,7 +130,7 @@ func (m *model) renderArticle(preserve bool) {
 		return
 	}
 	percent := m.viewport.ScrollPercent()
-	content, err := m.cache.render(m.article, m.width, m.palette().Key, m.profile)
+	content, err := m.articleContent()
 	m.err = err
 	if err != nil {
 		content = "Unable to render this article: " + err.Error()
@@ -345,6 +348,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "h", "left", "backspace":
 				m.closeArticle()
+			case "s":
+				m.toggleSource()
 			}
 			return m, nil
 		}
@@ -468,7 +473,7 @@ func (m model) hintLine(status string, reader bool) string {
 		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "y link", "s source", "^D/^U", "gg/G", "^L lang", "t theme"}
 	}
 	if m.noteID != 0 {
 		status += m.accent(m.note) + "  "
@@ -492,6 +497,9 @@ func (m model) chrome() (string, string) {
 	rule := m.muted(strings.Repeat("─", m.width))
 	if m.article != nil {
 		header := brand + "\n\n" + m.accent(cleanText(m.article.Title)) + "\n" + m.muted(m.article.Date.Format("2006-01-02"))
+		if m.source {
+			header += m.muted(" · ") + m.accent("Source")
+		}
 		if m.articleFallback {
 			header += "\n" + m.accent(m.notice())
 		}
@@ -576,6 +584,7 @@ var helpRows = [][2]string{
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
 	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
 	{"y", "copy the web link to the post"},
+	{"s", "show the post's Markdown source / the rendered post"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "choose a theme (↵ apply, esc cancel)"},
 	{"q / esc", "back; q quits from the top level"},
