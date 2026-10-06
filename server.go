@@ -117,7 +117,13 @@ func (c restrictedChannel) Accept() (gossh.Channel, <-chan *gossh.Request, error
 				continue
 			}
 			switch req.Type {
-			case "env", "pty-req", "window-change", "shell":
+			case "env":
+				if allowedEnv(req.Payload) {
+					allowed <- req
+				} else {
+					_ = req.Reply(false, nil)
+				}
+			case "pty-req", "window-change", "shell":
 				allowed <- req
 			default:
 				_ = req.Reply(false, nil)
@@ -125,4 +131,18 @@ func (c restrictedChannel) Accept() (gossh.Channel, <-chan *gossh.Request, error
 		}
 	}()
 	return ch, allowed, nil
+}
+
+// Client env only selects language and colors. Dropping everything else keeps
+// variables such as TMUX away from libraries that act on them.
+func allowedEnv(payload []byte) bool {
+	var kv struct{ Name, Value string }
+	if gossh.Unmarshal(payload, &kv) != nil {
+		return false
+	}
+	switch kv.Name {
+	case "LANG", "LC_ALL", "COLORTERM", "NO_COLOR", "CLICOLOR", "CLICOLOR_FORCE":
+		return true
+	}
+	return false
 }

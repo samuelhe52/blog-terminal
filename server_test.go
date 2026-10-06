@@ -80,6 +80,9 @@ func interactive(t *testing.T, client *gossh.Client, lang string) (*gossh.Sessio
 	if err := s.Setenv("LANG", lang); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.Setenv("TMUX", "/tmp/tmux-0/default,1,0"); err == nil {
+		t.Fatal("unlisted env variable accepted")
+	}
 	if err := s.RequestPty("xterm-256color", 32, 80, gossh.TerminalModes{}); err != nil {
 		t.Fatal(err)
 	}
