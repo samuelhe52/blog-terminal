@@ -37,6 +37,7 @@ type model struct {
 	pickPrev        string
 	profile         colorprofile.Profile
 	cache           *renderCache
+	images          *imageSession
 	err             error
 	note            string // a short status such as "Link copied"
 	noteID          int    // nonzero while note shows
@@ -72,7 +73,7 @@ func envValue(env []string, key string) string {
 }
 
 func newModel(c *catalog, lang language, theme string, profile colorprofile.Profile, width, height int) model {
-	m := model{catalog: c, lang: lang, theme: theme, dark: true, profile: profile, cache: &renderCache{}, width: max(1, min(width, 512)), height: max(1, min(height, 256))}
+	m := model{catalog: c, lang: lang, theme: theme, dark: true, profile: profile, cache: &renderCache{}, images: &imageSession{}, width: max(1, min(width, 512)), height: max(1, min(height, 256))}
 	if !validTheme(theme) {
 		m.theme = autoTheme
 	}
@@ -131,6 +132,8 @@ func (m *model) renderArticle(preserve bool) {
 	m.err = err
 	if err != nil {
 		content = "Unable to render this article: " + err.Error()
+	} else {
+		content = m.images.place(content, m.width)
 	}
 	m.viewport.SetWidth(m.width)
 	m.viewport.SetContent(content)

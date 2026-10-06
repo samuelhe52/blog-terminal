@@ -64,6 +64,9 @@ type post struct {
 	Body        string    `yaml:"-"`
 	File        string    `yaml:"-"`
 	URL         string    `yaml:"-"`
+
+	// Local images by source as written; see images.go.
+	Images map[string]*imageAsset `yaml:"-"`
 }
 
 type catalog struct {
