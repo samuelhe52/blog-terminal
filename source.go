@@ -18,10 +18,11 @@ import (
 // Markdown syntax, decided line by line, with fences and display math the only
 // state carried between lines.
 
-// codeBlock is a fenced block's position on screen and its contents.
-type codeBlock struct {
-	Start, End int    // rows of the opening fence and just past the closing one
-	Text       string // the lines between the fences, without the fences
+// sourceBlock is a fenced block's position on screen and its contents.
+type sourceBlock struct {
+	Start, End  int    // rows of the opening fence and just past the closing one
+	Text        string // the lines between the fences, without the fences
+	first, last int    // source lines of the code: [first, last)
 }
 
 type sourceClass uint8
@@ -56,7 +57,7 @@ type sourceLayout struct {
 	first    []int // the row each line starts on
 	rows     int
 	headings []int // lines holding an ATX heading
-	blocks   []codeBlock
+	blocks   []sourceBlock
 }
 
 // renderSource lays out and colors a post's body for the theme key. Colors are
@@ -95,14 +96,34 @@ func layoutSource(body string, width int) sourceLayout {
 			}
 			code = append(code, raw)
 		case wasFenced:
-			l.blocks = append(l.blocks, codeBlock{Start: l.first[open], End: l.rows, Text: strings.Join(code, "\n")})
+			l.blocks = append(l.blocks, sourceBlock{Start: l.first[open], End: l.rows, Text: strings.Join(code, "\n"), first: open + 1, last: i})
 			open = -1
 		}
 	}
 	if open >= 0 {
-		l.blocks = append(l.blocks, codeBlock{Start: l.first[open], End: l.rows, Text: strings.Join(code, "\n")})
+		l.blocks = append(l.blocks, sourceBlock{Start: l.first[open], End: l.rows, Text: strings.Join(code, "\n"), first: open + 1, last: len(l.lines)})
 	}
 	return l
+}
+
+// codeBlocks lists the code inside each fence, between the fence rows, for
+// c, [ and ] and for copying selections (codeblocks.go).
+func (l sourceLayout) codeBlocks() []codeBlock {
+	var blocks []codeBlock
+	for _, sb := range l.blocks {
+		if sb.first >= sb.last {
+			continue
+		}
+		b := codeBlock{start: l.first[sb.first], source: sb.Text}
+		for k := sb.first; k < sb.last; k++ {
+			for range l.segments[k] {
+				b.lines = append(b.lines, k-sb.first)
+			}
+		}
+		b.end = b.start + len(b.lines)
+		blocks = append(blocks, b)
+	}
+	return blocks
 }
 
 // wrapSource soft-wraps a line exactly like a code line and reports where
@@ -487,21 +508,21 @@ func emphasisRun(line string, i, n int) bool {
 }
 
 // The render cache stores source output beside rendered output, keyed by mode.
-func (c *renderCache) renderSource(p *post, width int, style string, profile colorprofile.Profile) (string, error) {
+func (c *renderCache) renderSource(p *post, width int, style string, profile colorprofile.Profile) (rendered, error) {
 	width = max(1, width)
-	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, true, false}, func() (string, error) {
-		return fitWidth(renderSource(p.Body, width, style), width), nil
+	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, true, false}, func() (rendered, error) {
+		l := layoutSource(p.Body, width)
+		r := rendered{text: l.render(lookupTheme(style)), blocks: l.codeBlocks()}
+		r.fit(width)
+		return r, nil
 	})
 }
 
-// articleContent renders the open article in the current mode and records the
-// code blocks of the source view.
-func (m *model) articleContent() (string, error) {
-	m.codeBlocks = nil
+// articleContent renders the open article in the current mode.
+func (m *model) articleContent() (rendered, error) {
 	if !m.source {
-		return m.cache.render(m.article, m.width, m.palette().Key, m.profile)
+		return m.cache.renderDoc(m.article, m.width, m.palette().Key, m.profile)
 	}
-	m.codeBlocks = layoutSource(m.article.Body, max(1, m.width)).blocks
 	return m.cache.renderSource(m.article, m.width, m.palette().Key, m.profile)
 }
 

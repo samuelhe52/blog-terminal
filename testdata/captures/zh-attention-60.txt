@@ -71,4 +71,4 @@ konakona · blog.konakona.dev                            中文
   样运行的 Transformer”的原因。                           
 ────────────────────────────────────────────────────────────
 https://blog.konakona.dev/zh/posts/attention-notes/
-  0%  j/k · h back · ? help · / search · y link · s source
+  0%  j/k · h back · ? help · / search · v visual · s source

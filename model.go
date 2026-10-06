@@ -23,8 +23,7 @@ type model struct {
 	folderFallback  bool
 	article         *post
 	articleFallback bool
-	source          bool        // showing the article's Markdown source
-	codeBlocks      []codeBlock // fenced blocks on screen, in source mode
+	source          bool // showing the article's Markdown source
 	width, height   int
 	viewport        viewport.Model
 	filter          textinput.Model
@@ -44,6 +43,10 @@ type model struct {
 	err             error
 	note            string // a short status such as "Link copied"
 	noteID          int    // nonzero while note shows
+	doc             rendered
+	visual          bool // line-wise selection from anchor to cursor
+	anchor, cursor  int
+	copied          codeFlash
 }
 
 // clearNoteMsg hides the note, unless a later note has replaced it.
@@ -104,7 +107,7 @@ func (m model) palette() theme {
 func (m *model) closeArticle() {
 	m.article = nil
 	m.err = nil
-	m.source, m.codeBlocks = false, nil
+	m.source, m.doc = false, rendered{}
 	m.clearSearch()
 	m.refreshListing()
 }
@@ -135,15 +138,16 @@ func (m *model) renderArticle(preserve bool) {
 		return
 	}
 	percent := m.viewport.ScrollPercent()
-	content, err := m.articleContent()
+	doc, err := m.articleContent()
 	m.err = err
 	if err != nil {
-		content = "Unable to render this article: " + err.Error()
+		doc = rendered{text: "Unable to render this article: " + err.Error()}
 	} else {
-		content = m.images.place(content, m.width)
+		doc = m.images.place(doc, m.width)
 	}
+	m.doc, m.visual, m.copied = doc, false, codeFlash{}
 	m.viewport.SetWidth(m.width)
-	m.viewport.SetContent(content)
+	m.viewport.SetContent(doc.text)
 	m.sizeViewport()
 	if preserve {
 		m.viewport.SetYOffset(int(percent * float64(max(0, m.viewport.TotalLineCount()-m.viewport.Height()))))
@@ -284,6 +288,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pendingG = false
 		count, explicit := max(1, m.count), m.count > 0
 		m.count = 0
+		if m.visual {
+			if cmd, handled := m.visualKey(key, count, explicit); handled {
+				return m, cmd
+			}
+		}
 		switch key {
 		case "?":
 			m.help = true
@@ -375,6 +384,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.stepMatch(count, true)
 			case "N":
 				return m, m.stepMatch(count, false)
+			case "v", "V":
+				// Start on the current search match when it is on screen.
+				line := v.YOffset()
+				if l, ok := m.currentMatchLine(); ok && l >= line && l < line+v.Height() {
+					line = l
+				}
+				m.startVisual(line)
+			case "c":
+				return m, m.copyCode()
+			case "[":
+				m.jumpCode(-1, count)
+			case "]":
+				m.jumpCode(1, count)
 			}
 			return m, nil
 		}
@@ -504,10 +526,13 @@ func (m model) hintLine(status string, reader bool) string {
 		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "/ search", "y link", "s source", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "/ search", "v visual", "s source", "c copy code", "y link", "[ ] code", "^D/^U", "gg/G", "^L lang", "t theme"}
 		if m.search.query != "" && !m.search.typing {
 			keys[3] = "n/N match"
 		}
+	}
+	if m.visual {
+		keys = []string{"j/k extend", "y yank", "esc leave"}
 	}
 	if m.noteID != 0 {
 		status += m.accent(m.note) + "  "
@@ -545,7 +570,7 @@ func (m model) chrome() (string, string) {
 		if m.search.typing {
 			link = m.search.input.View()
 		}
-		footer := rule + "\n" + link + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100)+m.searchStatus(), true)
+		footer := rule + "\n" + link + "\n" + m.hintLine(m.readerStatus(), true)
 		return fitWidth(header, m.width), fitWidth(footer, m.width)
 	}
 	location := "/"
@@ -627,6 +652,9 @@ var helpRows = [][2]string{
 	{"/ in a post", "search its text (↵ keep, esc clear)"},
 	{"n / N", "next / previous match"},
 	{"y", "copy the web link to the post"},
+	{"v / V", "select lines (j/k extend, y yank, esc leave)"},
+	{"c", "copy the code block at the top of the screen"},
+	{"[ / ]", "previous / next code block"},
 	{"s", "show the post's Markdown source / the rendered post"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "choose a theme (↵ apply, esc cancel)"},
@@ -691,7 +719,7 @@ func (m model) View() tea.View {
 	} else if m.help {
 		content = m.helpView()
 	} else if m.article != nil {
-		content = m.highlightSearch(m.viewport.View())
+		content = m.decorate(m.highlightSearch(m.viewport.View()))
 	} else {
 		content = m.homeView(available)
 	}

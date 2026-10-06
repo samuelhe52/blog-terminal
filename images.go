@@ -345,10 +345,11 @@ type shownImage struct {
 // place replaces the markers in rendered text with placeholder cells, and
 // queues the commands that send and size the images. Text without markers
 // is returned unchanged.
-func (s *imageSession) place(content string, width int) string {
-	if !strings.Contains(content, markerStart) {
-		return content
+func (s *imageSession) place(doc rendered, width int) rendered {
+	if !strings.Contains(doc.text, markerStart) {
+		return doc
 	}
+	content := doc.text
 	type spot struct {
 		asset  *imageAsset
 		prefix string
@@ -397,23 +398,23 @@ func (s *imageSession) place(content string, width int) string {
 	for _, a := range order {
 		ids[a] = s.show(a, size[a][0], size[a][1], size)
 	}
-	var out []string
-	for i, line := range lines {
+	doc.replaceLines(func(i int, line string) []string {
 		sp, marked := spots[i]
 		if !marked {
-			out = append(out, line)
-			continue
+			return []string{line}
 		}
 		id := ids[sp.asset]
 		if !sp.ok || id == 0 {
-			continue // the caption that follows stands in for it
+			return nil // the caption that follows stands in for it
 		}
 		cols, rows := size[sp.asset][0], size[sp.asset][1]
+		var out []string
 		for r := range rows {
 			out = append(out, sp.prefix+placeholderRow(id, r, cols))
 		}
-	}
-	return strings.Join(out, "\n")
+		return out
+	})
+	return doc
 }
 
 // show returns the session id for an image, sending it or resizing its

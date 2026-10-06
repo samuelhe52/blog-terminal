@@ -284,7 +284,7 @@ func TestRenderWithImages(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := &imageSession{}
-			placed := s.place(marked, width)
+			placed := s.placeText(marked, width)
 			if !strings.Contains(placed, placeholder) || strings.Contains(placed, markerStart) {
 				t.Fatalf("%s/%d: no placeholders", style, width)
 			}
@@ -339,7 +339,7 @@ func TestEveryPostWithImages(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					out = (&imageSession{}).place(out, width)
+					out = (&imageSession{}).placeText(out, width)
 					assertWidth(t, out, width)
 					if width >= 60 && fitWidth(out, width) != out {
 						t.Fatalf("%s/%s/%d: final guard changed an article with images", name, p.Slug, width)
@@ -370,7 +370,7 @@ func TestImageSessionIDs(t *testing.T) {
 		return strings.Join(parts, "\n\ntext\n\n")
 	}
 	s := &imageSession{}
-	out := s.place(page(a, b, a), 80)
+	out := s.placeText(page(a, b, a), 80)
 	sent := s.pending.String()
 	s.pending.Reset()
 	if strings.Count(sent, "a=T") != 2 || !strings.Contains(sent, "i=16,") || !strings.Contains(sent, "i=17,") {
@@ -380,11 +380,11 @@ func TestImageSessionIDs(t *testing.T) {
 		t.Fatalf("repeated image not placed twice: %d rows", strings.Count(out, "\x1b[38;5;16m"))
 	}
 	// Reopening sends nothing; a narrower window only moves the placement.
-	s.place(page(a, b), 80)
+	s.placeText(page(a, b), 80)
 	if s.pending.Len() != 0 {
 		t.Fatalf("resent: %q", s.pending.String())
 	}
-	s.place(page(a), 12)
+	s.placeText(page(a), 12)
 	if got := s.pending.String(); got != placeImage(16, 8, 2) {
 		t.Fatalf("resize: %q", got)
 	}
@@ -392,13 +392,13 @@ func TestImageSessionIDs(t *testing.T) {
 
 	// Out of ids, the least recently shown image is deleted first.
 	s = &imageSession{}
-	s.place(page(a), 80)
-	s.place(page(b), 80)
+	s.placeText(page(a), 80)
+	s.placeText(page(b), 80)
 	for range lastImageID - firstImageID - 1 {
-		s.place(page(asset(8, 8)), 80)
+		s.placeText(page(asset(8, 8)), 80)
 	}
 	s.pending.Reset()
-	s.place(page(b, asset(8, 8)), 80)
+	s.placeText(page(b, asset(8, 8)), 80)
 	if got := s.pending.String(); !strings.HasPrefix(got, deleteImage(16)) || !strings.Contains(got, "i=16,") || strings.Contains(got, deleteImage(17)) {
 		t.Fatalf("eviction: %.120q", got)
 	}
@@ -535,4 +535,9 @@ func TestSSHKittyImages(t *testing.T) {
 		send(input, "\x03")
 		waitSession(t, s)
 	}
+}
+
+// placeText places images in plain text, without code-block metadata.
+func (s *imageSession) placeText(content string, width int) string {
+	return s.place(rendered{text: content}, width).text
 }

@@ -55,7 +55,8 @@ func TestSourceShowsAuthorTextSafely(t *testing.T) {
 	body := "See [the notes](/en/posts/other/) and <img src=\"a.png\" alt=\"x\">.\n\n[ref]: ../relative\n\n$x$ and $$y$$\n\x1b]52;c;aGk=\x07evil\x1b[2J text\r\n\u009b31m"
 	for _, profile := range []colorprofile.Profile{colorprofile.ASCII, colorprofile.ANSI256, colorprofile.TrueColor} {
 		var cache renderCache
-		out, err := cache.renderSource(&post{Slug: "s", Lang: en, Body: body, URL: "https://example.com/en/posts/s/"}, 120, "rose-pine", profile)
+		doc, err := cache.renderSource(&post{Slug: "s", Lang: en, Body: body, URL: "https://example.com/en/posts/s/"}, 120, "rose-pine", profile)
+		out := doc.text
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,8 +198,8 @@ func TestSourceMode(t *testing.T) {
 	if !m.source || !strings.Contains(ansi.Strip(m.View().Content), "2026-06-30 · Source") {
 		t.Fatal("s must show the source with a header indicator")
 	}
-	if !strings.Contains(ansi.Strip(m.viewport.GetContent()), "[Pitfalls and fixes](/en/p") || len(m.codeBlocks) != 3 {
-		t.Fatalf("source view or its code blocks missing: %d %s", len(m.codeBlocks), ansi.Strip(m.viewport.GetContent()))
+	if !strings.Contains(ansi.Strip(m.viewport.GetContent()), "[Pitfalls and fixes](/en/p") || len(m.doc.blocks) != 3 {
+		t.Fatalf("source view or its code blocks missing: %d %s", len(m.doc.blocks), ansi.Strip(m.viewport.GetContent()))
 	}
 	if len(m.cache.values) != 2 {
 		t.Fatalf("rendered and source output must be cached separately: %d", len(m.cache.values))
@@ -237,7 +238,7 @@ func TestSourceMode(t *testing.T) {
 
 	// Closing the article resets it.
 	m, _ = press(m, "q")
-	if m.source || m.codeBlocks != nil {
+	if m.source || m.doc.blocks != nil {
 		t.Fatal("source mode must reset when the article closes")
 	}
 	m.open(p)

@@ -284,45 +284,51 @@ type renderKey struct {
 }
 
 type renderCache struct {
-	values   map[renderKey]string
+	values   map[renderKey]rendered
 	order    []renderKey
 	graphics bool // the terminal draws images; see images.go
 }
 
 func (c *renderCache) render(p *post, width int, style string, profile colorprofile.Profile) (string, error) {
+	value, err := c.renderDoc(p, width, style, profile)
+	return value.text, err
+}
+
+func (c *renderCache) renderDoc(p *post, width int, style string, profile colorprofile.Profile) (rendered, error) {
 	width = max(1, width)
 	// Image ids are 256-color indexes, so fewer colors turn images off.
 	var images *imagePass
 	if c.graphics && profile >= colorprofile.ANSI256 {
 		images = &imagePass{width: width, images: p.Images}
 	}
-	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, false, images != nil}, func() (string, error) {
-		value, err := renderMarkdown(preprocessWith(p.Body, p.URL, images), width, style)
+	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, false, images != nil}, func() (rendered, error) {
+		value, err := renderDocument(preprocessWith(p.Body, p.URL, images), width, style)
 		if err != nil {
-			return "", fmt.Errorf("render %s: %w", p.File, err)
+			return rendered{}, fmt.Errorf("render %s: %w", p.File, err)
 		}
-		return fitWidth(value, width), nil
+		value.fit(width)
+		return value, nil
 	})
 }
 
 // lookup returns the cached value for key, or builds it and adapts
 // its colors to the client's profile.
-func (c *renderCache) lookup(key renderKey, build func() (string, error)) (string, error) {
+func (c *renderCache) lookup(key renderKey, build func() (rendered, error)) (rendered, error) {
 	if value, ok := c.values[key]; ok {
 		return value, nil
 	}
 	value, err := build()
 	if err != nil {
-		return "", err
+		return rendered{}, err
 	}
 	var adapted strings.Builder
 	writer := colorprofile.Writer{Forward: &adapted, Profile: key.Profile}
-	if _, err := writer.WriteString(value); err != nil {
-		return "", err
+	if _, err := writer.WriteString(value.text); err != nil {
+		return rendered{}, err
 	}
-	value = adapted.String()
+	value.text = adapted.String()
 	if c.values == nil {
-		c.values = make(map[renderKey]string)
+		c.values = make(map[renderKey]rendered)
 	}
 	if len(c.order) >= 16 {
 		delete(c.values, c.order[0])

@@ -125,9 +125,12 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `n` / `N` | Next / previous search match |
 | `y` | Copy the post's web link (via OSC 52, so it works over SSH) |
 | `s` | In a post, switch between the rendered post and its Markdown source |
+| `v` / `V` | Select lines (starting at the current search match if it is on screen); motions extend the selection, `y` copies it, `esc` leaves |
+| `c` | Copy the code block at the top of the screen |
+| `[` / `]` | Previous / next code block |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
-| `q` / `esc` | Back (clearing a search first); `q` quits from the top level |
+| `q` / `esc` | Back: leave the selection, clear a search, then close the post; `q` quits from the top level |
 | `ctrl+c` | Quit |
 
 Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work,
@@ -199,7 +202,8 @@ that is missing or can't be read is logged at startup and shown as a caption.
   terminals, and terminals inside tmux or screen, show a caption with a
   link instead. See [Images](#images).
 - Long code lines wrap with a `↪` marker instead of scrolling horizontally.
-  Copy commands from the website rather than from the terminal.
+  Copying with `c`, or by selecting lines with `v` and `y`, gives the
+  original unwrapped lines.
 - The listing filter matches titles and descriptions, not post content.
   Inside a post, `/` searches the text on screen, one line at a time.
 
