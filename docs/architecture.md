@@ -11,6 +11,7 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `content.go` | Loading, validating, and pairing posts; building folders |
 | `markdown.go` | Rewriting Markdown into a form that renders well in a terminal |
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
+| `source.go` | Source mode: the post's Markdown with light highlighting |
 | `model.go` | The per-session Bubble Tea model |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
@@ -146,8 +147,38 @@ Chroma palette that gets registered across all renderers. Tables keep their
 styling.
 
 Each session caches up to 16 rendered articles. The cache key is the slug,
-the language actually shown, the width, the theme, and the client's color
-profile.
+the language actually shown, the width, the theme, the client's color
+profile, and whether the article or its source is shown.
+
+## Source mode
+
+`s` in the reader switches between the rendered article and its Markdown
+source, and the header shows `Source` next to the date. The source is the
+post body as written, without the frontmatter, since the header already
+shows the title and date. It passes through the same control-character
+filter as everything else, but not through preprocessing, so links stay
+relative and math keeps its dollar signs.
+
+`source.go` colors the source line by line with the theme's palette: heading
+markers and text, emphasis markers, inline code and fences, the code inside
+fences, link brackets with muted URLs, inline and display math, quote and
+list markers, HTML tags, and horizontal rules. Only fences and display math
+carry state from one line to the next. The rules approximate CommonMark
+rather than parse it, so unusual Markdown can be colored wrongly, but the
+text itself is never changed.
+
+Long lines wrap at the window width the same way code does, at character
+boundaries by display width, keeping the line's indentation and marking
+continuations with a dim `↪`. There is no margin, so joining each `↪` row
+to the line above it (after the repeated indentation) gives back the
+original line. Each fenced block's rows, from opening to closing fence, and
+the text between the fences are recorded on the model as `codeBlocks`.
+
+Switching keeps the same part of the post on screen. Headings found in both
+the rendered article and the source anchor the position, and rows between
+two headings map proportionally. Translation switches, theme changes, and
+resizes keep the mode and scroll to roughly the same percentage. Closing
+the article resets it, so every article opens rendered.
 
 ## Theme detection
 
@@ -244,6 +275,8 @@ per-client terminal settings are preserved.
 
 - No hot reload, full-text search, following links inside the reader, or
   horizontal scrolling.
+- Source mode's highlighting is approximate (see above) and does not
+  highlight the code inside fences by language.
 
 **Server**
 

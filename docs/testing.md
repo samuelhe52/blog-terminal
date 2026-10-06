@@ -29,10 +29,10 @@ Update them when you change the fixture on purpose.
 
 ## Checking the live posts
 
-Two corpus-wide tests also run against real content when `BLOG_CONTENT_DIR`
+Corpus-wide tests also run against real content when `BLOG_CONTENT_DIR`
 is set or a `./content` link exists (see the README): every post must fit at 40, 60, 80, and 120 columns in a dark and a
 light theme, and the final overflow guard must change nothing at 60, 80, and
-120 columns in every theme.
+120 columns in every theme. Source mode is checked against the same posts.
 
 ```sh
 ln -s ../Blog/src/content/posts content   # once
@@ -81,6 +81,10 @@ guard in `layout.go` changes **nothing**, which confirms that prose, quotes,
 code, and tables already fit before the guard runs. Both checks also cover
 the live posts when `BLOG_CONTENT_DIR` is set (see above).
 
+Source mode is checked the same way: every post's source fits at 40, 60,
+80, and 120 columns in every theme, the final guard changes nothing, and
+joining the `↪` continuations gives back every source line.
+
 Other rendering tests cover:
 
 - quote and code prefixes on continuation lines
@@ -90,6 +94,12 @@ Other rendering tests cover:
 - separate render caches per session
 - the dim `↪` marker on wrapped lines, and its absence on real line breaks
 - spaces inside quoted arguments surviving wrapping
+- source mode: the colors of each kind of Markdown syntax, CJK text and
+  deep indentation wrapping at any width, control characters removed and
+  links left unrewritten, colors adapted to ASCII and 256-color clients,
+  fenced block ranges and text, separate cache entries, the header
+  indicator, keeping the heading in view when toggling, and keeping or
+  resetting the mode on translation, theme, resize, and close
 
 **Search.** Finding all three fixture lectures from the root, folder paths
 in results, matching on descriptions, showing each article once in the

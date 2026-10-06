@@ -167,7 +167,8 @@ func wrapCodeLine(line string, width int) string {
 		return line
 	}
 	indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
-	if len(indent)+2 >= width {
+	// Leave room for the marker and one wide character after the indent.
+	if len(indent)+4 > width {
 		indent = ""
 	}
 	marker := "↪ "

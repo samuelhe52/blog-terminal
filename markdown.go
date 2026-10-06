@@ -305,6 +305,7 @@ type renderKey struct {
 	Width   int
 	Style   string
 	Profile colorprofile.Profile
+	Source  bool // the raw Markdown of source mode (source.go)
 }
 
 type renderCache struct {
@@ -314,17 +315,27 @@ type renderCache struct {
 
 func (c *renderCache) render(p *post, width int, style string, profile colorprofile.Profile) (string, error) {
 	width = max(1, width)
-	key := renderKey{p.Slug, p.Lang, width, style, profile}
+	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, false}, func() (string, error) {
+		value, err := renderMarkdown(preprocess(p.Body, p.URL), width, style)
+		if err != nil {
+			return "", fmt.Errorf("render %s: %w", p.File, err)
+		}
+		return fitWidth(value, width), nil
+	})
+}
+
+// lookup returns the cached value for key, or builds it and adapts
+// its colors to the client's profile.
+func (c *renderCache) lookup(key renderKey, build func() (string, error)) (string, error) {
 	if value, ok := c.values[key]; ok {
 		return value, nil
 	}
-	value, err := renderMarkdown(preprocess(p.Body, p.URL), width, style)
+	value, err := build()
 	if err != nil {
-		return "", fmt.Errorf("render %s: %w", p.File, err)
+		return "", err
 	}
-	value = fitWidth(value, width)
 	var adapted strings.Builder
-	writer := colorprofile.Writer{Forward: &adapted, Profile: profile}
+	writer := colorprofile.Writer{Forward: &adapted, Profile: key.Profile}
 	if _, err := writer.WriteString(value); err != nil {
 		return "", err
 	}
