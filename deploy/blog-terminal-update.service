@@ -1,0 +1,40 @@
+[Unit]
+Description=Build blog-terminal from GitHub main and install it if it changed
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+StateDirectory=blog-terminal-build
+CacheDirectory=blog-terminal-build
+Environment=HOME=/var/lib/blog-terminal-build
+Environment=GOPATH=/var/cache/blog-terminal-build/go
+Environment=GOCACHE=/var/cache/blog-terminal-build/go-build
+Environment=GOFLAGS=-mod=readonly
+Environment=CGO_ENABLED=0
+Environment=PATH=/usr/local/go/bin:/usr/bin:/bin
+ExecStart=/usr/local/libexec/blog-terminal-update
+# "+" runs with full privileges; only this step touches the live install.
+ExecStartPost=+/bin/sh -c 'cd /var/lib/blog-terminal-build && [ -f pending ] || exit 0; install -o root -g root -m 0755 pending /usr/local/bin/blog-terminal && mv pending.rev installed && rm pending && systemctl try-restart blog-terminal.service'
+TimeoutStartSec=15min
+Nice=10
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+MemoryMax=2G

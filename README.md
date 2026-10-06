@@ -112,10 +112,8 @@ posts are needed. To also check rendering of the live posts, set
 [docs/testing.md](docs/testing.md) for details, and
 [docs/architecture.md](docs/architecture.md) for an overview of the code.
 
-The public instance runs at `ssh -p 2222 ssh-blog.konakona.dev` as a
-sandboxed systemd service. The unit files are in [`deploy/`](deploy/). The
-Blog's deploy workflow copies `src/content/posts` to `/srv/blog-terminal/posts`
-and then writes `/srv/blog-terminal/deployed`, which triggers a restart.
+Example systemd units, including a timer that rebuilds from `main`, are in
+[`deploy/`](deploy/).
 
 ## License
 
