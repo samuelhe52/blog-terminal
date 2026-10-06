@@ -30,8 +30,9 @@ Update them when you change the fixture on purpose.
 ## Checking the live posts
 
 Two corpus-wide tests also run against real content when `BLOG_CONTENT_DIR`
-is set: every post must fit at 40, 60, 80, and 120 columns in both themes,
-and the final overflow guard must change nothing at 60, 80, and 120 columns.
+is set: every post must fit at 40, 60, 80, and 120 columns in a dark and a
+light theme, and the final overflow guard must change nothing at 60, 80, and
+120 columns in every theme.
 
 ```sh
 BLOG_CONTENT_DIR=../Blog/src/content/posts go test ./...
@@ -67,11 +68,12 @@ UPDATE_CAPTURES=1 go test -run TestReaderCaptures
 **Content and navigation.** Frontmatter validation, draft exclusion,
 translation pairing, listings and folders for the fixture blog, the `--site-url` and `--title` overrides, language
 fallback, and URLs. Navigation, filtering, switching translations, vim keys
-(counts, `gg`, half pages, the help screen), theme and color-profile
+(counts, `gg`, half pages, the help screen), the theme picker's preview,
+apply, and cancel, theme and color-profile
 messages, cache size, resizing, and very small windows.
 
 **Rendering.** Every fixture post is rendered at 40, 60, 80, and 120
-columns in both themes, and every line is checked to fit. Width is measured in
+columns in a dark and a light theme, and every line is checked to fit. Width is measured in
 display cells, with East Asian wide characters counting as two. Every post is
 also rendered at 60, 80, and 120 columns to check that the final overflow
 guard in `layout.go` changes **nothing**, which confirms that prose, quotes,
@@ -114,7 +116,7 @@ blinking, and the session and connection limits. The rate limit and global
 limits also have unit tests.
 
 **Theme detection.** A real SSH test waits for the OSC 11 query, sends back a
-white background, and checks that the light palette is used. A second session
+white background, and checks that `auto` switches to the light palette. A second session
 that receives no reply must stay dark and still respond to input. The reply
 is sent by the test, not by a real terminal, so detection in specific
 terminal apps still needs to be checked by hand.

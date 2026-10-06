@@ -29,8 +29,11 @@ type model struct {
 	help            bool
 	count           int
 	pendingG        bool
-	theme           string
-	manualTheme     bool
+	theme           string // a key from themeChoices, possibly auto
+	dark            bool   // the client's background, as last reported
+	picking         bool
+	pickCursor      int
+	pickPrev        string
 	profile         colorprofile.Profile
 	cache           *renderCache
 	err             error
@@ -63,11 +66,9 @@ func envValue(env []string, key string) string {
 }
 
 func newModel(c *catalog, lang language, theme string, profile colorprofile.Profile, width, height int) model {
-	m := model{catalog: c, lang: lang, theme: theme, profile: profile, cache: &renderCache{}, width: max(1, min(width, 512)), height: max(1, min(height, 256))}
-	if theme == "auto" || theme == "" {
-		m.theme = "dark"
-	} else {
-		m.manualTheme = true
+	m := model{catalog: c, lang: lang, theme: theme, dark: true, profile: profile, cache: &renderCache{}, width: max(1, min(width, 512)), height: max(1, min(height, 256))}
+	if !validTheme(theme) {
+		m.theme = autoTheme
 	}
 	m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(max(1, m.height-8)))
 	m.filter = textinput.New()
@@ -79,11 +80,14 @@ func newModel(c *catalog, lang language, theme string, profile colorprofile.Prof
 	return m
 }
 
+// Always ask: a visitor can switch to auto later even when another theme is
+// the default.
 func (m model) Init() tea.Cmd {
-	if !m.manualTheme {
-		return tea.RequestBackgroundColor
-	}
-	return nil
+	return tea.RequestBackgroundColor
+}
+
+func (m model) palette() theme {
+	return resolveTheme(m.theme, m.dark)
 }
 
 func (m *model) closeArticle() {
@@ -117,7 +121,7 @@ func (m *model) renderArticle(preserve bool) {
 		return
 	}
 	percent := m.viewport.ScrollPercent()
-	content, err := m.cache.render(m.article, m.width, m.theme, m.profile)
+	content, err := m.cache.render(m.article, m.width, m.palette().Key, m.profile)
 	m.err = err
 	if err != nil {
 		content = "Unable to render this article: " + err.Error()
@@ -147,11 +151,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.BackgroundColorMsg:
-		if !m.manualTheme {
-			m.theme = "light"
-			if msg.IsDark() {
-				m.theme = "dark"
-			}
+		m.dark = msg.IsDark()
+		if m.theme == autoTheme {
 			m.styleFilter()
 			m.renderArticle(true)
 		}
@@ -201,6 +202,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshListing()
 			return m, cmd
 		}
+		if m.picking {
+			choices := themeChoices()
+			switch key {
+			case "j", "down", "ctrl+n", "ctrl+e":
+				m.pickCursor = min(m.pickCursor+1, len(choices)-1)
+			case "k", "up", "ctrl+p", "ctrl+y":
+				m.pickCursor = max(0, m.pickCursor-1)
+			case "enter", "l", "right":
+				m.picking = false
+				m.renderArticle(true)
+				return m, nil
+			case "esc", "q", "t", "h", "left":
+				m.picking = false
+				m.theme = m.pickPrev
+				m.styleFilter()
+				m.renderArticle(true)
+				return m, nil
+			default:
+				return m, nil
+			}
+			// Preview the highlighted theme across the whole screen. The
+			// article itself rerenders once, when the picker closes.
+			m.theme = choices[m.pickCursor]
+			m.styleFilter()
+			return m, nil
+		}
 		if m.help {
 			switch key {
 			case "?", "q", "esc", "h", "left":
@@ -243,14 +270,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "t":
-			m.manualTheme = true
-			if m.theme == "dark" {
-				m.theme = "light"
-			} else {
-				m.theme = "dark"
+			m.picking = true
+			m.pickPrev = m.theme
+			for i, key := range themeChoices() {
+				if key == m.theme {
+					m.pickCursor = i
+				}
 			}
-			m.styleFilter()
-			m.renderArticle(true)
 			return m, nil
 		case "q", "esc":
 			if m.article != nil {
@@ -359,12 +385,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) styleFilter() {
-	s := textinput.DefaultStyles(m.theme == "dark")
-	muted := "#908CAA"
-	accent := "#C4A7E7"
-	if m.theme == "light" {
-		muted, accent = "#686477", "#684494"
-	}
+	t := m.palette()
+	s := textinput.DefaultStyles(t.Dark)
+	muted, accent := t.Muted, t.Accent
+	s.Focused.Text = lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(t.Text)))
 	s.Focused.Prompt = lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(accent)))
 	s.Focused.Placeholder = lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(muted)))
 	s.Blurred = s.Focused
@@ -373,19 +397,15 @@ func (m *model) styleFilter() {
 }
 
 func (m model) accent(s string) string {
-	color := "#C4A7E7"
-	if m.theme == "light" {
-		color = "#684494"
-	}
-	return lipgloss.NewStyle().Bold(true).Foreground(m.profile.Convert(lipgloss.Color(color))).Render(s)
+	return lipgloss.NewStyle().Bold(true).Foreground(m.profile.Convert(lipgloss.Color(m.palette().Accent))).Render(s)
 }
 
 func (m model) muted(s string) string {
-	color := "#908CAA"
-	if m.theme == "light" {
-		color = "#686477"
-	}
-	return lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(color))).Render(s)
+	return lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(m.palette().Muted))).Render(s)
+}
+
+func (m model) text(s string) string {
+	return lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(m.palette().Text))).Render(s)
 }
 
 func (m model) notice() string {
@@ -414,6 +434,9 @@ func (m model) hintLine(status string, reader bool) string {
 	}
 	if reader {
 		keys = []string{"j/k", "h back", "? help", "^D/^U", "gg/G", "^L lang", "t theme"}
+	}
+	if m.picking {
+		keys = []string{"j/k", "↵ apply", "esc cancel"}
 	}
 	available := max(0, m.width-ansi.StringWidth(status))
 	var hints []string
@@ -498,6 +521,8 @@ func (m model) homeView(height int) string {
 		if i == m.selected {
 			marker = "› "
 			title = m.accent(title)
+		} else {
+			title = m.text(title)
 		}
 		lines = append(lines, ansi.Truncate(marker+title, m.width, "…"), m.muted(ansi.Truncate("  "+cleanText(detail), m.width, "…")), "")
 	}
@@ -513,7 +538,7 @@ var helpRows = [][2]string{
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
 	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
 	{"^L", "switch language 中文 / English"},
-	{"t", "toggle light / dark"},
+	{"t", "choose a theme (↵ apply, esc cancel)"},
 	{"q / esc", "back; q quits from the top level"},
 	{"?", "close this help"},
 	{"^C", "quit"},
@@ -531,11 +556,48 @@ func (m model) helpView() string {
 	return strings.Join(lines, "\n")
 }
 
+// pickerView lists every theme. The highlighted one adds its description and
+// color swatches; the window scrolls to keep them visible.
+func (m model) pickerView(height int) string {
+	lines := []string{m.accent("  Theme"), ""}
+	end := 0
+	for i, key := range themeChoices() {
+		marker, name, check := "  ", m.text(themeName(key)), ""
+		if key == m.pickPrev {
+			check = m.muted(" ✓")
+		}
+		if i == m.pickCursor {
+			marker, name = "› ", m.accent(themeName(key))
+		}
+		lines = append(lines, "  "+marker+name+check)
+		if i == m.pickCursor {
+			lines = append(lines, "      "+m.muted(themeDescription(key)), "      "+m.swatches(resolveTheme(key, m.dark)), "")
+			end = len(lines) - 1
+		}
+	}
+	lines = lines[max(0, end+1-height):]
+	for i, line := range lines {
+		lines[i] = ansi.Truncate(line, m.width, "…")
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (m model) swatches(t theme) string {
+	var blocks []string
+	for _, c := range [][2]string{{"Acc", t.Accent}, {"Sec", t.Secondary}, {"Ter", t.Tertiary}, {"Txt", t.Text}, {"Mut", t.Muted}} {
+		style := lipgloss.NewStyle().Foreground(m.profile.Convert(lipgloss.Color(t.Base))).Background(m.profile.Convert(lipgloss.Color(c[1])))
+		blocks = append(blocks, style.Render(" "+c[0]+" "))
+	}
+	return strings.Join(blocks, " ")
+}
+
 func (m model) View() tea.View {
 	header, footer := m.chrome()
 	available := max(1, m.height-lipgloss.Height(header)-lipgloss.Height(footer))
 	content := ""
-	if m.help {
+	if m.picking {
+		content = m.pickerView(available)
+	} else if m.help {
 		content = m.helpView()
 	} else if m.article != nil {
 		content = m.viewport.View()

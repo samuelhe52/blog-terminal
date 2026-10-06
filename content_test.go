@@ -226,7 +226,7 @@ func TestSiteOverride(t *testing.T) {
 	if p.URL != "https://notes.example.org/en/posts/course-notes/lecture-0-search/" {
 		t.Fatalf("article URL: %s", p.URL)
 	}
-	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 24)
+	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 24)
 	if brand := ansi.Strip(m.brand()); !strings.HasPrefix(brand, "example · notes.example.org") {
 		t.Fatalf("header: %q", brand)
 	}
@@ -234,12 +234,12 @@ func TestSiteOverride(t *testing.T) {
 	if _, footer := m.chrome(); !strings.Contains(ansi.Strip(footer), p.URL) {
 		t.Fatal("footer must link to the configured site")
 	}
-	out, err := m.cache.render(p, 80, "dark", colorprofile.TrueColor)
+	out, err := m.cache.render(p, 80, "rose-pine", colorprofile.TrueColor)
 	if err != nil || !strings.Contains(ansi.Strip(out), "https://example.com/course/lecture-0") {
 		t.Fatalf("absolute links must survive: %v", err)
 	}
 	r, _ := c.resolve("reference/tips-and-tricks", en)
-	if out, _ := m.cache.render(r, 120, "dark", colorprofile.TrueColor); !strings.Contains(ansi.Strip(out), "https://notes.example.org/lab/demo/") {
+	if out, _ := m.cache.render(r, 120, "rose-pine", colorprofile.TrueColor); !strings.Contains(ansi.Strip(out), "https://notes.example.org/lab/demo/") {
 		t.Fatal("relative links must resolve against the configured site")
 	}
 }

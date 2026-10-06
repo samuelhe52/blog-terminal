@@ -53,7 +53,7 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
 | `/` | Filter by title and description; `↓`/`↑` move through matches |
 | `ctrl+l` | Switch between 中文 and English |
-| `t` | Toggle light / dark theme |
+| `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
 | `q` / `esc` | Back; `q` quits from the top level |
 | `ctrl+c` | Quit |
 
@@ -70,7 +70,7 @@ Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work.
 | `--site-url` | `https://blog.konakona.dev` | Public site that article links point to (`BLOG_SITE_URL`) |
 | `--title` | `konakona` | Blog name in the header (`BLOG_TITLE`) |
 | `--lang` | from session | `zh` or `en` |
-| `--theme` | `auto` | `auto`, `dark`, or `light` |
+| `--theme` | `auto` | `auto`, `rose-pine`, `rose-pine-dawn`, `dracula`, `nord`, `gruvbox`, or `paper` |
 | `--listen` | `127.0.0.1:2222` | SSH listen address |
 | `--host-key` | `.ssh/host_ed25519` | Ed25519 host key path |
 | `--idle-timeout` | `5m` | Disconnect after this long without input |
@@ -85,9 +85,11 @@ or `LANG`, in that order. `zh*` locales select Chinese; anything else selects
 English. To forward your locale over SSH, add `SendEnv LANG LC_ALL` to your
 SSH client config.
 
-With `--theme auto`, the reader queries the terminal's background color and
-uses the dark theme until a reply arrives. Not every terminal replies; `t`
-switches the theme manually.
+Themes only recolor text; the terminal's own background always shows through.
+With `auto`, the reader queries the terminal's background color and uses Rosé
+Pine until a reply arrives, or Rosé Pine Dawn if the background is light. Not
+every terminal replies; `t` opens a picker that previews each theme across the
+whole screen. The choice lasts for the session.
 
 ## Differences from the website
 

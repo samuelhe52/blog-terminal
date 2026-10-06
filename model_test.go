@@ -42,7 +42,7 @@ func press(m model, key string) (model, tea.Cmd) {
 
 func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	c := fixtureCatalog(t)
-	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 24)
+	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 24)
 	m, _ = press(m, "j")
 	if m.selected != 1 {
 		t.Fatal("j navigation")
@@ -120,9 +120,21 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	}
 	assertWidth(t, m.viewport.GetContent(), 40)
 	assertWidth(t, m.View().Content, 40)
+	before := m.viewport.GetContent()
 	m, _ = press(m, "t")
-	if m.theme != "light" {
-		t.Fatal("theme toggle")
+	m, _ = press(m, "j")
+	if !m.picking || m.theme != "rose-pine-dawn" || !strings.Contains(ansi.Strip(m.View().Content), "morning light") {
+		t.Fatal("theme picker preview")
+	}
+	m, _ = press(m, "enter")
+	if m.picking || m.theme != "rose-pine-dawn" || m.viewport.GetContent() == before {
+		t.Fatal("theme picker apply")
+	}
+	m, _ = press(m, "t")
+	m, _ = press(m, "j")
+	m, _ = press(m, "esc")
+	if m.picking || m.theme != "rose-pine-dawn" {
+		t.Fatal("theme picker cancel")
 	}
 	if _, cmd := press(m, "ctrl+c"); cmd == nil {
 		t.Fatal("ctrl+c must quit")
@@ -131,7 +143,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 
 func TestFilterLifecycleAndGlobalResults(t *testing.T) {
 	for _, width := range []int{40, 90} {
-		m := newModel(fixtureCatalog(t), en, "dark", colorprofile.TrueColor, width, 32)
+		m := newModel(fixtureCatalog(t), en, "rose-pine", colorprofile.TrueColor, width, 32)
 		m, _ = press(m, "/")
 		for _, r := range "lecture" {
 			m, _ = press(m, string(r))
@@ -185,7 +197,7 @@ func TestFilterCoalescedEscapeKeys(t *testing.T) {
 		{Code: tea.KeyEscape, Mod: tea.ModAlt},
 		{Code: '/', Mod: tea.ModAlt},
 	} {
-		m := newModel(fixtureCatalog(t), en, "dark", colorprofile.TrueColor, 80, 32)
+		m := newModel(fixtureCatalog(t), en, "rose-pine", colorprofile.TrueColor, 80, 32)
 		m, _ = press(m, "/")
 		m, _ = press(m, "lecture")
 		updated, _ := m.Update(key)
@@ -212,14 +224,16 @@ func TestClientLanguageAndBackground(t *testing.T) {
 	m := newModel(fixtureCatalog(t), en, "auto", colorprofile.ANSI256, 80, 24)
 	updated, _ := m.Update(tea.BackgroundColorMsg{Color: color.White})
 	m = updated.(model)
-	if m.theme != "light" {
+	if m.palette().Key != "rose-pine-dawn" {
 		t.Fatal("client background ignored")
 	}
-	m, _ = press(m, "t")
+	for _, key := range []string{"t", "j", "j", "j", "enter"} {
+		m, _ = press(m, key)
+	}
 	updated, _ = m.Update(tea.BackgroundColorMsg{Color: color.White})
 	m = updated.(model)
-	if m.theme != "dark" {
-		t.Fatal("background query overrides explicit toggle")
+	if m.palette().Key != "dracula" {
+		t.Fatal("background query overrides an explicit theme")
 	}
 	updated, _ = m.Update(tea.ColorProfileMsg{Profile: colorprofile.ASCII})
 	m = updated.(model)
@@ -230,8 +244,8 @@ func TestClientLanguageAndBackground(t *testing.T) {
 
 func TestModelSmallWindowsAndIndependentSessions(t *testing.T) {
 	c := fixtureCatalog(t)
-	a := newModel(c, zh, "dark", colorprofile.TrueColor, 80, 24)
-	b := newModel(c, en, "light", colorprofile.ANSI, 80, 24)
+	a := newModel(c, zh, "rose-pine", colorprofile.TrueColor, 80, 24)
+	b := newModel(c, en, "paper", colorprofile.ANSI, 80, 24)
 	p, _ := c.resolve("attention-notes", zh)
 	a.open(p)
 	for _, width := range []int{1, 2, 10, 40, 60, 80, 120} {
@@ -244,8 +258,22 @@ func TestModelSmallWindowsAndIndependentSessions(t *testing.T) {
 			}
 		}
 	}
+	picker, _ := press(a, "t")
+	for _, width := range []int{1, 10, 40, 80} {
+		for _, height := range []int{1, 8, 24} {
+			updated, _ := picker.Update(tea.WindowSizeMsg{Width: width, Height: height})
+			picker = updated.(model)
+			for range themeChoices() {
+				picker, _ = press(picker, "j")
+				assertWidth(t, picker.View().Content, width)
+				if len(strings.Split(picker.View().Content, "\n")) > height {
+					t.Fatal("picker exceeds height")
+				}
+			}
+		}
+	}
 	a, _ = press(a, "ctrl+l")
-	if b.lang != en || b.theme != "light" || b.article != nil || a.cache == b.cache {
+	if b.lang != en || b.theme != "paper" || b.article != nil || a.cache == b.cache {
 		t.Fatal("shared mutable session state")
 	}
 }
@@ -255,7 +283,7 @@ func TestChromeHeaderAndSingleLineHints(t *testing.T) {
 	p, _ := c.resolve("attention-notes", zh)
 	for _, width := range []int{40, 60, 80, 120} {
 		for _, lang := range []language{zh, en} {
-			m := newModel(c, lang, "dark", colorprofile.TrueColor, width, 32)
+			m := newModel(c, lang, "rose-pine", colorprofile.TrueColor, width, 32)
 			for _, reader := range []bool{false, true} {
 				if reader {
 					m.open(p)
@@ -291,14 +319,16 @@ func TestSessionCachesAreIndependent(t *testing.T) {
 	c := fixtureCatalog(t)
 	p, _ := c.resolve("attention-notes", en)
 	original := p.Body
-	a := newModel(c, en, "dark", colorprofile.TrueColor, 80, 32)
-	b := newModel(c, en, "dark", colorprofile.TrueColor, 80, 32)
+	a := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 32)
+	b := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 32)
 	a.open(p)
 	b.open(p)
 	a, _ = press(a, "ctrl+l")
 	a, _ = press(a, "t")
+	a, _ = press(a, "j")
+	a, _ = press(a, "enter")
 	a, _ = press(a, "G")
-	if b.lang != en || b.theme != "dark" || b.article != p || !b.viewport.AtTop() || len(b.cache.values) != 1 {
+	if b.lang != en || b.theme != "rose-pine" || b.article != p || !b.viewport.AtTop() || len(b.cache.values) != 1 {
 		t.Fatal("session state or cache leaked")
 	}
 	if len(a.cache.values) <= len(b.cache.values) || a.cache == b.cache || p.Body != original {
@@ -308,7 +338,7 @@ func TestSessionCachesAreIndependent(t *testing.T) {
 
 func TestVimKeys(t *testing.T) {
 	c := fixtureCatalog(t)
-	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 30)
+	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 30)
 	seq := func(keys ...string) {
 		t.Helper()
 		for _, k := range keys {

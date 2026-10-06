@@ -43,7 +43,7 @@ func TestPreprocess(t *testing.T) {
 func TestMathSurvivesRendering(t *testing.T) {
 	p := &post{Slug: "math", Lang: en, Body: "Before $a_i * b_j + \\alpha$ after.\n\n$$\na_i * b_j + \\alpha\n$$\n\n```sh\necho '$HOME'\n```"}
 	var cache renderCache
-	out, err := cache.render(p, 80, "dark", colorprofile.TrueColor)
+	out, err := cache.render(p, 80, "rose-pine", colorprofile.TrueColor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 	formulas := []string{`$S \in \mathbb{R}^{r \times d_v}$`, `$z \in \mathbb{R}^{r}$`, `$O(N^2 d_k)$`}
 	body := "令 $Q$ 分别。其中，" + formulas[0] + "、" + formulas[1] + "。复杂度为 " + formulas[2] + "。"
 	for _, width := range []int{40, 60, 80, 120} {
-		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "dark")
+		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -121,7 +121,8 @@ func TestEveryPostNeedsNoFinalGuard(t *testing.T) {
 func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
 	t.Helper()
 	for _, width := range []int{60, 80, 120} {
-		for _, theme := range []string{"dark", "light"} {
+		for _, th := range themes {
+			theme := th.Key
 			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, theme)
 			if err != nil {
 				t.Fatal(err)
@@ -137,7 +138,7 @@ func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
 func TestQuoteAndCodeContinuations(t *testing.T) {
 	quote := "> " + strings.Repeat("中文引用 with some English ", 12) + "\n>\n> Another paragraph.\n>\n> > Nested quote with a long " + strings.Repeat("word ", 30)
 	for _, width := range []int{40, 60, 80, 120} {
-		out, err := renderMarkdown(preprocess(quote, defaultSite.URL), width, "dark")
+		out, err := renderMarkdown(preprocess(quote, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -148,7 +149,7 @@ func TestQuoteAndCodeContinuations(t *testing.T) {
 			}
 		}
 		code := "```text\n    " + strings.Repeat("value ", 30) + "\n" + strings.Repeat("identifier_", 30) + "\n```"
-		out, err = renderMarkdown(preprocess(code, defaultSite.URL), width, "dark")
+		out, err = renderMarkdown(preprocess(code, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -171,15 +172,15 @@ func TestQuoteAndCodeContinuations(t *testing.T) {
 
 func TestCodePalettesDoNotDependOnSessionOrder(t *testing.T) {
 	code := "```python\nprint('hello')\n```"
-	lightBefore, err := renderMarkdown(code, 80, "light")
+	lightBefore, err := renderMarkdown(code, 80, "rose-pine-dawn")
 	if err != nil {
 		t.Fatal(err)
 	}
-	dark, err := renderMarkdown(code, 80, "dark")
+	dark, err := renderMarkdown(code, 80, "rose-pine")
 	if err != nil {
 		t.Fatal(err)
 	}
-	lightAfter, err := renderMarkdown(code, 80, "light")
+	lightAfter, err := renderMarkdown(code, 80, "rose-pine-dawn")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +213,7 @@ func TestCodeAndMathSoftWrapMarkers(t *testing.T) {
 			t.Fatalf("soft wrapping changed code whitespace: %q", reconstructed.String())
 		}
 		body := "```sh\n" + line + "\necho 'real newline'\n```\n\n$$\n" + strings.Repeat(`\left(QK^\top\right)V,`, 8) + "\n$$"
-		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "dark")
+		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -233,7 +234,7 @@ func TestCodeAndMathSoftWrapMarkers(t *testing.T) {
 		}
 	}
 	short := "echo first\necho second"
-	out, err := renderMarkdown("```sh\n"+short+"\n```", 80, "dark")
+	out, err := renderMarkdown("```sh\n"+short+"\n```", 80, "rose-pine")
 	if err != nil || strings.Contains(out, "↪") {
 		t.Fatal("short source lines must not acquire continuation markers")
 	}
@@ -259,7 +260,7 @@ func TestEveryPostWidth(t *testing.T) {
 func checkWidths(t *testing.T, corpus string, p *post) {
 	t.Helper()
 	for _, width := range []int{40, 60, 80, 120} {
-		for _, style := range []string{"dark", "light"} {
+		for _, style := range []string{"rose-pine", "rose-pine-dawn"} {
 			t.Run(fmt.Sprintf("%s/%s/%s/%d/%s", corpus, p.Lang, p.Slug, width, style), func(t *testing.T) {
 				var cache renderCache
 				out, err := cache.render(p, width, style, colorprofile.TrueColor)
@@ -279,7 +280,7 @@ func TestWidthUnicodeAndCode(t *testing.T) {
 	p := &post{Slug: "wide", Lang: zh, Body: strings.Repeat("中文没有空格段落", 100) + "\n\n```text\n" + strings.Repeat("very_long_identifier_", 50) + "\n```\n\n| A | B |\n|---|---|\n| " + strings.Repeat("中文", 40) + " | " + strings.Repeat("abcdef", 40) + " |"}
 	for _, width := range []int{1, 2, 10, 40, 60, 80, 120} {
 		var cache renderCache
-		out, err := cache.render(p, width, "dark", colorprofile.TrueColor)
+		out, err := cache.render(p, width, "rose-pine", colorprofile.TrueColor)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -294,7 +295,7 @@ func TestRenderCacheAndProfiles(t *testing.T) {
 	p := &post{Slug: "test", Lang: en, Body: "# Heading\n\nSome **bold** words."}
 	var cache renderCache
 	for _, profile := range []colorprofile.Profile{colorprofile.ASCII, colorprofile.ANSI, colorprofile.ANSI256, colorprofile.TrueColor} {
-		out, err := cache.render(p, 80, "dark", profile)
+		out, err := cache.render(p, 80, "rose-pine", profile)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -303,7 +304,7 @@ func TestRenderCacheAndProfiles(t *testing.T) {
 		}
 	}
 	for width := 40; width < 80; width++ {
-		if _, err := cache.render(p, width, "light", colorprofile.ANSI256); err != nil {
+		if _, err := cache.render(p, width, "rose-pine-dawn", colorprofile.ANSI256); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -311,7 +312,7 @@ func TestRenderCacheAndProfiles(t *testing.T) {
 		t.Fatalf("cache unbounded: %d", len(cache.values))
 	}
 	old := len(cache.order)
-	if _, err := cache.render(p, 79, "light", colorprofile.ANSI256); err != nil {
+	if _, err := cache.render(p, 79, "rose-pine-dawn", colorprofile.ANSI256); err != nil {
 		t.Fatal(err)
 	}
 	if len(cache.order) != old {
@@ -336,7 +337,7 @@ func TestReaderCaptures(t *testing.T) {
 		{"server-setup", en, "en-server-setup-80.txt", 80},
 	} {
 		p, _ := c.resolve(tt.slug, tt.lang)
-		m := newModel(c, tt.lang, "dark", colorprofile.TrueColor, tt.width, 32)
+		m := newModel(c, tt.lang, "rose-pine", colorprofile.TrueColor, tt.width, 32)
 		m.open(p)
 		h, f := m.chrome()
 		capture := ansi.Strip(h+"\n"+m.viewport.GetContent()+"\n"+f) + "\n"
@@ -372,7 +373,7 @@ func TestCJKLineBreaking(t *testing.T) {
 	}
 	para := "本文先回顾标准的 softmax 注意力，再说明为什么把相似度函数换成可分解的核函数之后，整个计算可以按照序列长度线性增长。"
 	for _, width := range []int{30, 40, 60} {
-		out, err := renderMarkdown(preprocess(para, defaultSite.URL), width, "dark")
+		out, err := renderMarkdown(preprocess(para, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -391,7 +392,7 @@ func TestCJKLineBreaking(t *testing.T) {
 	// punctuation, across every fixture post and width.
 	for _, p := range fixtureCatalog(t).Posts {
 		for _, width := range []int{30, 40, 60, 80} {
-			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, "dark")
+			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, "rose-pine")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -406,7 +407,7 @@ func TestCJKLineBreaking(t *testing.T) {
 	}
 
 	// Inline math stays whole even with hyphens; code is never altered.
-	out, err := renderMarkdown(preprocess("在每一步中维护状态 $S_t = S_{t-1} + \\phi(k_t)$ 与归一化项 $z_t = z_{t-1}$，"+strings.Repeat("成本与长度无关，", 6), defaultSite.URL), 40, "dark")
+	out, err := renderMarkdown(preprocess("在每一步中维护状态 $S_t = S_{t-1} + \\phi(k_t)$ 与归一化项 $z_t = z_{t-1}$，"+strings.Repeat("成本与长度无关，", 6), defaultSite.URL), 40, "rose-pine")
 	if err != nil {
 		t.Fatal(err)
 	}

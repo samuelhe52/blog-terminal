@@ -52,7 +52,7 @@ func parseConfig(args []string) (string, config, error) {
 	f.StringVar(&cfg.Listen, "listen", cfg.Listen, "SSH listen address")
 	f.StringVar(&cfg.HostKey, "host-key", cfg.HostKey, "persistent SSH host private key")
 	f.StringVar(&cfg.Lang, "lang", cfg.Lang, "initial language override: zh or en (also BLOG_TERMINAL_LANG)")
-	f.StringVar(&cfg.Theme, "theme", cfg.Theme, "auto, dark, or light")
+	f.StringVar(&cfg.Theme, "theme", cfg.Theme, themeList())
 	f.DurationVar(&cfg.Idle, "idle-timeout", cfg.Idle, "SSH connection idle timeout")
 	f.DurationVar(&cfg.Duration, "max-duration", cfg.Duration, "maximum connection/session duration")
 	f.IntVar(&cfg.MaxSessions, "max-sessions", cfg.MaxSessions, "global SSH channel/session cap")
@@ -74,8 +74,8 @@ func parseConfig(args []string) (string, config, error) {
 	if strings.TrimSpace(cfg.Title) == "" {
 		return "", cfg, fmt.Errorf("--title must not be empty")
 	}
-	if cfg.Theme != "auto" && cfg.Theme != "dark" && cfg.Theme != "light" {
-		return "", cfg, fmt.Errorf("--theme must be auto, dark, or light")
+	if !validTheme(cfg.Theme) {
+		return "", cfg, fmt.Errorf("--theme must be one of %s", themeList())
 	}
 	if cfg.Idle <= 0 || cfg.Duration <= 0 || cfg.MaxSessions < 1 || cfg.MaxConnections < 1 || cfg.PerIP < 1 || cfg.Rate < 1 {
 		return "", cfg, fmt.Errorf("timeouts and limits must be positive")

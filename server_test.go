@@ -137,7 +137,7 @@ func TestServeSSHCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := filepath.Join(t.TempDir(), ".ssh/host_ed25519")
-	cmd := exec.CommandContext(ctx, bin, "serve", "--listen", addr, "--content", content, "--host-key", key, "--theme", "dark")
+	cmd := exec.CommandContext(ctx, bin, "serve", "--listen", addr, "--content", content, "--host-key", key, "--theme", "rose-pine")
 	logs := &captureBuffer{}
 	cmd.Stdout, cmd.Stderr = logs, logs
 	if err := cmd.Start(); err != nil {
@@ -384,7 +384,7 @@ func TestSSHBackgroundQueryAndReply(t *testing.T) {
 		m := newModel(fixtureCatalog(t), en, theme, colorprofile.ANSI256, 80, 32)
 		return colorSequence.FindString(m.accent("test"))
 	}
-	dark, light := palette("dark"), palette("light")
+	dark, light := palette("rose-pine"), palette("rose-pine-dawn")
 	if dark == light || light == "" {
 		t.Fatal("expected distinct theme colors")
 	}
@@ -477,8 +477,8 @@ func TestFlags(t *testing.T) {
 			t.Fatalf("invalid flags accepted: %v", args)
 		}
 	}
-	_, cfg, err := parseConfig([]string{"serve", "--listen", "127.0.0.1:0", "--lang", "zh", "--theme", "light"})
-	if err != nil || cfg.Lang != "zh" || cfg.Theme != "light" {
+	_, cfg, err := parseConfig([]string{"serve", "--listen", "127.0.0.1:0", "--lang", "zh", "--theme", "paper"})
+	if err != nil || cfg.Lang != "zh" || cfg.Theme != "paper" {
 		t.Fatalf("flags: %v", err)
 	}
 }

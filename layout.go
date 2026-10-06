@@ -20,10 +20,14 @@ import (
 // child blocks again at the document margin, discarding their continuation
 // prefixes. Use its public ANSI renderer on the parsed tree so references and
 // inline formatting still resolve across the entire article.
-func renderMarkdown(markdown string, width int, theme string) (string, error) {
-	base, ok := styles.DefaultStyles[theme]
-	if !ok {
-		return "", fmt.Errorf("unknown Markdown theme %q", theme)
+func renderMarkdown(markdown string, width int, key string) (string, error) {
+	t := lookupTheme(key)
+	if t.Key != key {
+		return "", fmt.Errorf("unknown theme %q", key)
+	}
+	base := styles.DefaultStyles["dark"]
+	if !t.Dark {
+		base = styles.DefaultStyles["light"]
 	}
 	style := *base
 	margin := int(*style.Document.Margin)
@@ -33,13 +37,22 @@ func renderMarkdown(markdown string, width int, theme string) (string, error) {
 	zero := uint(0)
 	style.Document.Margin = &zero
 	style.Code.Prefix, style.Code.Suffix = "", ""
+	// Assign fresh pointers: the copy shares them with the global default.
+	color := func(c string) *string { return &c }
+	style.Document.Color = color(t.Text)
+	style.Heading.Color = color(t.Secondary)
+	style.H1.Color, style.H1.BackgroundColor = color(t.Base), color(t.Accent)
+	style.H6.Color = color(t.Muted)
+	style.Link.Color = color(t.Muted)
+	style.LinkText.Color = color(t.Accent)
+	style.Image.Color = color(t.Muted)
+	style.ImageText.Color = color(t.Muted)
+	style.Code.Color = color(t.Tertiary)
+	style.HorizontalRule.Color = color(t.Muted)
 	// Glamour registers every custom Chroma palette as "charm" and keeps the
 	// first one. Named built-ins avoid first-session theme leakage entirely.
 	style.CodeBlock.Chroma = nil
-	style.CodeBlock.Theme = "dracula"
-	if theme == "light" {
-		style.CodeBlock.Theme = "github"
-	}
+	style.CodeBlock.Theme = t.Chroma
 	source := []byte(markdown)
 	parser := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.DefinitionList))
 	doc := parser.Parser().Parse(text.NewReader(source))

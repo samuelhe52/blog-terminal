@@ -140,8 +140,8 @@ the source have no marker. Spaces inside quoted arguments are preserved when
 wrapping. Because of the markers, wrapped commands can't be copied directly;
 the web version has the original lines.
 
-Code uses the Dracula syntax palette in dark mode and GitHub in light mode.
-They are selected by name, because Glamour otherwise shares the first custom
+Each theme in `theme.go` names a Chroma syntax palette (Paper uses GitHub)
+and recolors Glamour's dark or light base style. Palettes are selected by name, because Glamour otherwise shares the first custom
 Chroma palette that gets registered across all renderers. Tables keep their
 styling.
 
@@ -156,12 +156,16 @@ environment, and the color profile Bubble Tea detects for it. The server's
 own terminal is never consulted. Rendering has no side effects and adapts
 colors explicitly for each client.
 
-With `--theme auto`, Bubble Tea sends an OSC 11 query (`ESC ] 11 ; ? ST`) to
-the client and reads the reply from that session's input. The reader renders
-in dark mode immediately and switches to light if the reply reports a light
-background. If no reply arrives, it stays dark; it never waits for one. Once
-the visitor presses `t`, or a theme is forced with `--theme`, later replies
-are ignored.
+Bubble Tea sends an OSC 11 query (`ESC ] 11 ; ? ST`) to the client at
+startup and reads the reply from that session's input. The `auto` theme
+renders as Rosé Pine immediately and switches to Rosé Pine Dawn if the reply
+reports a light background. If no reply arrives, it stays dark; it never waits
+for one. The reply is remembered even when another theme is chosen, so
+picking `auto` later with `t` still follows the terminal.
+
+The picker changes the session's theme as the cursor moves, so the chrome
+previews it at once. The article is rerendered only when the picker closes:
+`enter` keeps the highlighted theme and `esc` restores the previous one.
 
 ## Sessions
 
