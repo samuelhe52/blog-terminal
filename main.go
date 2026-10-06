@@ -21,12 +21,13 @@ import (
 type config struct {
 	Content, Listen, HostKey, Lang, Theme    string
 	SiteURL, Title                           string
+	Assets                                   string
 	Idle, Duration                           time.Duration
 	MaxSessions, MaxConnections, PerIP, Rate int
 }
 
 func defaults() config {
-	return config{Content: defaultContentDir(), SiteURL: envOr("BLOG_SITE_URL", defaultSite.URL), Title: envOr("BLOG_TITLE", defaultSite.Title), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
+	return config{Content: defaultContentDir(), Assets: os.Getenv("BLOG_ASSETS_DIR"), SiteURL: envOr("BLOG_SITE_URL", defaultSite.URL), Title: envOr("BLOG_TITLE", defaultSite.Title), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
 }
 
 // localContent is a git-ignored link to the Blog's posts for development.
@@ -60,6 +61,7 @@ func parseConfig(args []string) (string, config, error) {
 	}
 	f := flag.NewFlagSet(mode, flag.ContinueOnError)
 	f.StringVar(&cfg.Content, "content", cfg.Content, "posts directory containing zh/ and en/ (also BLOG_CONTENT_DIR, then ./content)")
+	f.StringVar(&cfg.Assets, "assets", cfg.Assets, "directory that site-absolute image paths such as /images/a.png resolve against (also BLOG_ASSETS_DIR)")
 	f.StringVar(&cfg.SiteURL, "site-url", cfg.SiteURL, "public base URL of the blog, for article links (also BLOG_SITE_URL)")
 	f.StringVar(&cfg.Title, "title", cfg.Title, "blog name shown in the header (also BLOG_TITLE)")
 	f.StringVar(&cfg.Listen, "listen", cfg.Listen, "SSH listen address")
@@ -112,9 +114,10 @@ func run(args []string) error {
 	if len(c.Posts) == 0 {
 		return fmt.Errorf("no published Markdown posts found in %s", cfg.Content)
 	}
+	loadImages(c, cfg.Content, cfg.Assets, log.Printf)
 	if mode == "local" {
 		m := newModel(c, initialLanguage(os.Environ(), cfg.Lang), cfg.Theme, colorprofile.Env(os.Environ()), 80, 24)
-		_, err := tea.NewProgram(m).Run()
+		_, err := tea.NewProgram(withImages(m)).Run()
 		return err
 	}
 	srv, err := newServer(cfg, c)

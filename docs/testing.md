@@ -23,6 +23,8 @@ the cases that matter:
   with long links, tables with Chinese cells, long shell commands with quoted
   arguments, and `$` signs in code that are not math
 - relative, reference-style, and autolink URLs
+- a small PNG next to a post (`reference/imgs/pipeline.png`), and an SVG in
+  `testdata/assets/` for the site-absolute `<img>` in the attention notes
 
 Some tests check exact facts about the fixture, such as the post counts.
 Update them when you change the fixture on purpose.
@@ -135,6 +137,23 @@ Other SSH tests cover choosing Chinese from the session environment, the idle
 and maximum-duration timeouts, the idle timeout while the filter's cursor is
 blinking, and the session and connection limits. The rate limit and global
 limits also have unit tests.
+
+**Images.** Detection by terminal name, including old kitty versions,
+WezTerm, and tmux; resolving sources, including `..` and symlinks that leave
+the root, remote URLs, and site-absolute paths with and without `--assets`;
+loading PNGs and SVGs (through a stand-in `rsvg-convert`), downscaling, and
+warnings for broken files without stopping startup. Image blocks appear only
+before captions that are outside code, and the caption and link stay the
+same. Articles with images fit at 40, 60, 80, and 120 columns in a dark and
+a light theme, and the final guard changes nothing at 60 and above; this also
+covers the live posts, with `BLOG_ASSETS_DIR` pointing at the site's
+`public/` for `/images`. Session tests cover sending each image once,
+resizing a placement, and deleting the least recently shown image when ids
+run out. `TestSSHKittyImages` opens a session with `TERM=xterm-kitty`,
+answers the version and graphics queries as kitty would, and checks the
+bytes sent: the image transmission, and placeholder cells that keep their
+color and diacritics through Bubble Tea's renderer. Sessions that report
+WezTerm, tmux, or nothing must not receive any graphics command.
 
 **Theme detection.** A real SSH test waits for the OSC 11 query, sends back a
 white background, and checks that `auto` switches to the light palette. A second session

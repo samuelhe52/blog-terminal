@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="300" viewBox="0 0 640 300">
+  <rect width="640" height="300" fill="white"/>
+  <g font-family="serif" font-size="40" font-style="italic" fill="#171717">
+    <text x="40" y="160">Q</text>
+    <text x="260" y="160">KᵀV</text>
+    <text x="560" y="160">O</text>
+  </g>
+  <rect x="230" y="90" width="150" height="110" fill="none" stroke="#171717" stroke-width="3"/>
+  <path d="M 90 148 H 210 M 400 148 H 530" stroke="#171717" stroke-width="3.5"/>
+</svg>

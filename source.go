@@ -489,7 +489,7 @@ func emphasisRun(line string, i, n int) bool {
 // The render cache stores source output beside rendered output, keyed by mode.
 func (c *renderCache) renderSource(p *post, width int, style string, profile colorprofile.Profile) (string, error) {
 	width = max(1, width)
-	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, true}, func() (string, error) {
+	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, true, false}, func() (string, error) {
 		return fitWidth(renderSource(p.Body, width, style), width), nil
 	})
 }

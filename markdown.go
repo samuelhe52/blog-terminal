@@ -14,6 +14,7 @@ import (
 )
 
 var imageTag = regexp.MustCompile(`(?is)^<img\b[^>]*>`)
+var blockImage = regexp.MustCompile(`^ {0,3}!\[[^\]\n]*\]\(\s*(<[^>\n]+>|[^\s)]+)(?:\s+"[^"\n]*")?\s*\)\s*$`)
 var referenceLink = regexp.MustCompile(`(?m)^( {0,3}\[[^\]\n]+\]:\s*)(<[^>]+>|\S+)`)
 
 // A zero-cell Unicode space gives Glamour a discretionary word boundary next
@@ -74,6 +75,12 @@ func fenceAt(line string) (byte, int, bool) {
 // Code is passed through byte for byte. Math becomes literal inline code or a
 // fenced display block BEFORE Goldmark/Glamour can interpret TeX punctuation.
 func preprocess(body, base string) string {
+	return preprocessWith(body, base, nil)
+}
+
+// preprocessWith also places drawn images before their captions when images
+// is not nil.
+func preprocessWith(body, base string, images *imagePass) string {
 	body = cleanText(body)
 	var out strings.Builder
 	var fence byte
@@ -110,6 +117,9 @@ func preprocess(body, base string) string {
 				out.WriteString(line)
 				i += end
 				continue
+			}
+			if m := blockImage.FindStringSubmatch(line); m != nil {
+				out.WriteString(images.image(strings.TrimSuffix(strings.TrimPrefix(m[1], "<"), ">")))
 			}
 			if loc := referenceLink.FindStringSubmatchIndex(line); loc != nil {
 				dest := line[loc[4]:loc[5]]
@@ -192,15 +202,16 @@ func preprocess(body, base string) string {
 				z := html.NewTokenizer(strings.NewReader(tag))
 				z.Next()
 				t := z.Token()
-				alt, src := "image", ""
+				alt, src, raw := "image", "", ""
 				for _, a := range t.Attr {
 					if a.Key == "alt" && a.Val != "" {
 						alt = a.Val
 					}
 					if a.Key == "src" {
-						src = absoluteLink(a.Val, base)
+						src, raw = absoluteLink(a.Val, base), a.Val
 					}
 				}
+				out.WriteString(images.image(raw))
 				out.WriteString("\n\n" + codeSpan("[Image: "+alt+"]") + "\n\n" + src + "\n\n")
 				i += len(tag)
 				continue
@@ -306,17 +317,24 @@ type renderKey struct {
 	Style   string
 	Profile colorprofile.Profile
 	Source  bool // the raw Markdown of source mode (source.go)
+	Images  bool
 }
 
 type renderCache struct {
-	values map[renderKey]string
-	order  []renderKey
+	values   map[renderKey]string
+	order    []renderKey
+	graphics bool // the terminal draws images; see images.go
 }
 
 func (c *renderCache) render(p *post, width int, style string, profile colorprofile.Profile) (string, error) {
 	width = max(1, width)
-	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, false}, func() (string, error) {
-		value, err := renderMarkdown(preprocess(p.Body, p.URL), width, style)
+	// Image ids are 256-color indexes, so fewer colors turn images off.
+	var images *imagePass
+	if c.graphics && profile >= colorprofile.ANSI256 {
+		images = &imagePass{width: width, images: p.Images}
+	}
+	return c.lookup(renderKey{p.Slug, p.Lang, width, style, profile, false, images != nil}, func() (string, error) {
+		value, err := renderMarkdown(preprocessWith(p.Body, p.URL, images), width, style)
 		if err != nil {
 			return "", fmt.Errorf("render %s: %w", p.File, err)
 		}

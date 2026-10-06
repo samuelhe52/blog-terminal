@@ -27,7 +27,7 @@ func newServer(cfg config, c *catalog) (*ssh.Server, error) {
 		wish.WithMiddleware(wishtea.Middleware(func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 			pty, _, _ := s.Pty()
 			env := append(s.Environ(), "TERM="+pty.Term)
-			return newModel(c, initialLanguage(env, cfg.Lang), cfg.Theme, colorprofile.Env(env), pty.Window.Width, pty.Window.Height), nil
+			return withImages(newModel(c, initialLanguage(env, cfg.Lang), cfg.Theme, colorprofile.Env(env), pty.Window.Width, pty.Window.Height)), nil
 		}), func(next ssh.Handler) ssh.Handler {
 			return func(s ssh.Session) {
 				if _, _, ok := s.Pty(); !ok || len(s.Command()) != 0 {
