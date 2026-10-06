@@ -38,11 +38,12 @@ type model struct {
 	profile         colorprofile.Profile
 	cache           *renderCache
 	err             error
-	copied          int // nonzero while the "link copied" note shows
+	note            string // a short status such as "Link copied"
+	noteID          int    // nonzero while note shows
 }
 
-// clearCopiedMsg hides the note, unless a later copy has replaced it.
-type clearCopiedMsg int
+// clearNoteMsg hides the note, unless a later note has replaced it.
+type clearNoteMsg int
 
 func initialLanguage(env []string, override string) language {
 	if override != "" {
@@ -162,9 +163,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.renderArticle(true)
 		}
 		return m, nil
-	case clearCopiedMsg:
-		if int(msg) == m.copied {
-			m.copied = 0
+	case clearNoteMsg:
+		if int(msg) == m.noteID {
+			m.note, m.noteID = "", 0
 		}
 		return m, nil
 	case tea.KeyPressMsg:
@@ -296,11 +297,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p == nil {
 				return m, nil
 			}
-			// OSC 52 sets the clipboard of the visitor's terminal, so this
-			// works over SSH as well as locally.
-			m.copied++
-			id := m.copied
-			return m, tea.Batch(tea.SetClipboard(p.URL), tea.Tick(2*time.Second, func(time.Time) tea.Msg { return clearCopiedMsg(id) }))
+			return m, m.copy(p.URL, "Link copied")
 		case "q", "esc":
 			if m.article != nil {
 				m.closeArticle()
@@ -407,6 +404,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// copy puts text on the visitor's clipboard and shows note for two seconds.
+// OSC 52 sets the clipboard of the visitor's terminal, so this works over SSH
+// as well as locally.
+func (m *model) copy(text, note string) tea.Cmd {
+	return tea.Batch(tea.SetClipboard(text), m.flash(note))
+}
+
+// flash shows a short note in the footer for two seconds.
+func (m *model) flash(note string) tea.Cmd {
+	m.noteID++
+	m.note = note
+	id := m.noteID
+	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return clearNoteMsg(id) })
+}
+
 func (m *model) styleFilter() {
 	t := m.palette()
 	s := textinput.DefaultStyles(t.Dark)
@@ -458,8 +470,8 @@ func (m model) hintLine(status string, reader bool) string {
 	if reader {
 		keys = []string{"j/k", "h back", "? help", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
 	}
-	if m.copied != 0 {
-		status += m.accent("Link copied") + "  "
+	if m.noteID != 0 {
+		status += m.accent(m.note) + "  "
 	}
 	if m.picking {
 		keys = []string{"j/k", "↵ apply", "esc cancel"}

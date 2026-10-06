@@ -439,7 +439,7 @@ func TestCopyLink(t *testing.T) {
 	c := fixtureCatalog(t)
 	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 24)
 	m, cmd := press(m, "y")
-	if cmd != nil || m.copied != 0 {
+	if cmd != nil || m.noteID != 0 {
 		t.Fatal("y on a folder must not copy")
 	}
 	m, _ = press(m, "enter")
@@ -457,14 +457,14 @@ func TestCopyLink(t *testing.T) {
 	if !strings.Contains(copied, want) {
 		t.Fatalf("copied %q, want %q", copied, want)
 	}
-	first := m.copied
+	first := m.noteID
 	m, _ = press(m, "enter")
 	m, _ = press(m, "y")
-	updated, _ := m.Update(clearCopiedMsg(first))
-	if m = updated.(model); m.copied == 0 {
+	updated, _ := m.Update(clearNoteMsg(first))
+	if m = updated.(model); m.noteID == 0 {
 		t.Fatal("a stale timer must not hide a newer note")
 	}
-	updated, _ = m.Update(clearCopiedMsg(m.copied))
+	updated, _ = m.Update(clearNoteMsg(m.noteID))
 	if m = updated.(model); strings.Contains(m.View().Content, "Link copied") {
 		t.Fatal("note must clear")
 	}
