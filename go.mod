@@ -11,7 +11,8 @@ require (
 	charm.land/wish/v2 v2.0.5
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.8
-	github.com/yuin/goldmark v1.7.17
+	github.com/doug/termtex v0.0.0-20260918165034-c407d5cf5251
+	github.com/yuin/goldmark v1.8.2
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.59.0

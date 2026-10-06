@@ -141,6 +141,9 @@ func wrapCode(doc ast.Node, original []byte, width int, style glamour.StyleConfi
 		for _, line := range strings.Split(strings.TrimSuffix(code.String(), "\n"), "\n") {
 			wrappedLines = append(wrappedLines, wrapCodeLine(line, max(1, width-indent)))
 		}
+		if math, ok := displayMathBlock(node, original, code.String(), max(1, width-indent)); ok {
+			wrappedLines = math
+		}
 		wrapped := strings.Join(wrappedLines, "\n") + "\n"
 		start := len(source)
 		source = append(source, wrapped...)

@@ -39,8 +39,8 @@ Lecture 1: Knowledge
   ## Notes                                                                    
                                                                             
   Model checking enumerates every possible model and checks whether the       
-  knowledge base entails the query. It is correct but slow: with              
-  $ symbols there are ^n$ models.                                             
+  knowledge base entails the query. It is correct but slow: with $ symbols    
+  there are ^n$ models.                                                       
                                                                             
   1. Enumerate all models.                                                    
   2. Keep the models where the knowledge base is true.                        

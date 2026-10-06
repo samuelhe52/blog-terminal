@@ -22,12 +22,12 @@ func TestPreprocess(t *testing.T) {
 		{"HTML image", `<img alt="A &amp; B_中文" src='/images/a.svg' width="600" />`, []string{"[Image: A & B_中文]", defaultSite.URL + "/images/a.svg"}},
 		{"Markdown destinations", `[root](/lab/a/) ![plot](../plot.png) [nested](./a_(b).md "title")`, []string{defaultSite.URL + "/lab/a/", defaultSite.URL + "/en/posts/folder/plot.png", defaultSite.URL + `/en/posts/folder/article/a_(b).md "title"`}},
 		{"reference links", "[x]: /images/x.png \"title\"\n![plot][x]", []string{defaultSite.URL + "/images/x.png"}},
-		{"inline math", `Text $a_i * b_j + \alpha$ end.`, []string{codeSpan(strings.ReplaceAll(`$a_i * b_j + \alpha$`, " ", "\u00a0"))}},
-		{"display math", "Before\n$$\na_i * b_j + \\alpha\n\\frac{1}{2}\n$$\nAfter", []string{"```text\na_i * b_j + \\alpha\n\\frac{1}{2}\n```"}},
+		{"inline math", `Text $a_i * b_j + \alpha$ end.`, []string{codeSpan(strings.ReplaceAll(`aᵢ * bⱼ + α`, " ", "\u00a0"))}},
+		{"display math", "Before\n$$\na_i * b_j + \\alpha\n\\frac{1}{2}\n$$\nAfter", []string{"```text " + displayMathInfo + "\na_i * b_j + \\alpha\n\\frac{1}{2}\n```"}},
 		{"code span", "`$HOME * a_i \\x` and ``$x`y$``", []string{"`$HOME * a_i \\x`", "``$x`y$``"}},
 		{"fenced code", "```sh\necho '$HOME' # $a_i$\n[link](/dont-touch)\n```\n~~~python\ns = '$$'\n~~~", []string{"```sh\necho '$HOME' # $a_i$\n[link](/dont-touch)\n```", "~~~python\ns = '$$'\n~~~"}},
 		{"indented code", "    echo '$HOME $x$'\n", []string{"    echo '$HOME $x$'\n"}},
-		{"escaped dollar", `cost \$20 and $x_i$`, []string{`\$20`, codeSpan(`$x_i$`)}},
+		{"escaped dollar", `cost \$20 and $x_i$`, []string{`\$20`, codeSpan(`xᵢ`)}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := preprocess(tt.source, base)
@@ -41,20 +41,20 @@ func TestPreprocess(t *testing.T) {
 }
 
 func TestMathSurvivesRendering(t *testing.T) {
-	p := &post{Slug: "math", Lang: en, Body: "Before $a_i * b_j + \\alpha$ after.\n\n$$\na_i * b_j + \\alpha\n$$\n\n```sh\necho '$HOME'\n```"}
+	p := &post{Slug: "math", Lang: en, Body: "Before $a_i * b_j + \\alpha$ after.\n\n$$\nc_i * d_j + \\beta\n$$\n\n```sh\necho '$HOME'\n```"}
 	var cache renderCache
 	out, err := cache.render(p, 80, "rose-pine", colorprofile.TrueColor)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out = ansi.Strip(out)
-	for _, want := range []string{`$a_i * b_j + \alpha$`, `a_i * b_j + \alpha`, `echo '$HOME'`} {
+	for _, want := range []string{`Before aᵢ * bⱼ + α after`, `cᵢ * dⱼ + β`, `echo '$HOME'`} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("math/code corrupted: missing %q\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "$$") {
-		t.Fatal("display delimiters leaked into rendered math")
+	if strings.Count(out, "$") != 1 {
+		t.Fatal("math delimiters leaked into rendered math")
 	}
 }
 
@@ -62,15 +62,15 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 	if ansi.StringWidth(mathBreak) != 0 {
 		t.Fatal("math break must occupy zero terminal cells")
 	}
-	formulas := []string{`$S \in \mathbb{R}^{r \times d_v}$`, `$z \in \mathbb{R}^{r}$`, `$O(N^2 d_k)$`}
-	body := "令 $Q$ 分别。其中，" + formulas[0] + "、" + formulas[1] + "。复杂度为 " + formulas[2] + "。"
+	formulas := []string{`S ∈ ℝ^{r×dᵥ}`, `z ∈ ℝʳ`, `O(N²dₖ)`}
+	body := `令 $Q$ 分别。其中，$S \in \mathbb{R}^{r \times d_v}$、$z \in \mathbb{R}^{r}$。复杂度为 $O(N^2 d_k)$。`
 	for _, width := range []int{40, 60, 80, 120} {
 		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
 		}
 		out = ansi.Strip(out)
-		if !strings.Contains(out, "令 $Q$ 分别") {
+		if !strings.Contains(out, "令 Q 分别") {
 			t.Fatalf("padded inline math: %s", out)
 		}
 		for _, formula := range formulas {
@@ -82,7 +82,7 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 			t.Fatalf("layout markers leaked: %q", out)
 		}
 		for _, line := range strings.Split(out, "\n") {
-			if strings.HasPrefix(line, "   $") {
+			if strings.HasPrefix(line, "   ") {
 				t.Fatalf("stray leading math padding: %q", line)
 			}
 			if strings.HasPrefix(line, "  。") || strings.HasPrefix(line, "  、") {
@@ -212,7 +212,7 @@ func TestCodeAndMathSoftWrapMarkers(t *testing.T) {
 		if reconstructed.String() != line {
 			t.Fatalf("soft wrapping changed code whitespace: %q", reconstructed.String())
 		}
-		body := "```sh\n" + line + "\necho 'real newline'\n```\n\n$$\n" + strings.Repeat(`\left(QK^\top\right)V,`, 8) + "\n$$"
+		body := "```sh\n" + line + "\necho 'real newline'\n```\n\n$$\n" + strings.Repeat(`\left(QK^\top\right)V,`, 12) + "\n$$"
 		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "rose-pine")
 		if err != nil {
 			t.Fatal(err)
@@ -407,11 +407,11 @@ func TestCJKLineBreaking(t *testing.T) {
 	}
 
 	// Inline math stays whole even with hyphens; code is never altered.
-	out, err := renderMarkdown(preprocess("在每一步中维护状态 $S_t = S_{t-1} + \\phi(k_t)$ 与归一化项 $z_t = z_{t-1}$，"+strings.Repeat("成本与长度无关，", 6), defaultSite.URL), 40, "rose-pine")
+	out, err := renderMarkdown(preprocess("在每一步中维护状态 $S_t = -S_{t-1} + \\phi(k_t)$ 与归一化项 $z_t = z_{t-1}$，"+strings.Repeat("成本与长度无关，", 6), defaultSite.URL), 40, "rose-pine")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plain := ansi.Strip(out); !strings.Contains(plain, "S_{t-1}") || !strings.Contains(plain, "z_{t-1}") || strings.ContainsAny(plain, mathBreak+nbHyphen+" ") {
+	if plain := ansi.Strip(out); !strings.Contains(plain, "Sₜ = -Sₜ₋₁ + φ(kₜ)") || !strings.Contains(plain, "zₜ = zₜ₋₁") || strings.ContainsAny(plain, mathBreak+nbHyphen+" ") {
 		t.Fatalf("inline math split or markers leaked:\n%s", plain)
 	}
 	code := "`中文代码`\n\n```text\n中文代码块，不应被修改\n```\n"

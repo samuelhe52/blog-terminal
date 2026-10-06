@@ -13,25 +13,30 @@ konakona · blog.konakona.dev                                                中
                                                                             
   ## Softmax 注意力                                                           
                                                                             
-  令 $Q, K \in \mathbb{R}^{N \times d_k}$ 分别为查询矩阵和键矩阵，            
-  $V \in \mathbb{R}^{N \times d_v}$ 为值矩阵。标准的缩放点积注意力为          
+  令 Q, K ∈ ℝ^{N×dₖ} 分别为查询矩阵和键矩阵，V ∈ ℝ^{N×dᵥ} 为值矩阵。标准的缩放
+  点积注意力为                                                                
                                                                             
-    O = \operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V,          
+               ⎛ QKᵀ ⎞                                                        
+    O = softmax⎜─────⎟V,                                                      
+               ⎝√(dₖ)⎠                                                        
                                                                             
-  计算所有查询与键两两之间分数的复杂度为 $O(N^2 d_k)$，对值加权求和的复杂度为 
-  $O(N^2 d_v)$。由于此计算复杂度与 $N$ 呈平方关系，处理长上下文时效率很低。   
+  计算所有查询与键两两之间分数的复杂度为 O(N²dₖ)，对值加权求和的复杂度为      
+  O(N²dᵥ)。由于此计算复杂度与 N 呈平方关系，处理长上下文时效率很低。          
                                                                             
   ## 线性注意力                                                               
                                                                             
-  使用特征映射 $\phi: \mathbb{R}^{d_k} \to \mathbb{R}^{r}$ 定义               
-  $\kappa(q_i, k_j) = \phi(q_i)^T \phi(k_j)$，代入后得到：                    
+  使用特征映射 φ : ℝ^{dₖ} → ℝʳ 定义 κ(qᵢ, kⱼ) = φ(qᵢ)ᵀφ(kⱼ)，代入后得到：     
                                                                             
-    \begin{aligned}                                                           
-    o_i &= \frac{\sum_{j=1}^{N} \phi(q_i)^T \phi(k_j) v_j}{\sum_{j=1}^{N} \p  
-    ↪ hi(q_i)^T \phi(k_j)} = \frac{\phi(q_i)^T \left(\sum_{j=1}^{N} \phi(k_j) 
-    ↪ v_j^T\right)}{\phi(q_i)^T \left(\sum_{j=1}^{N} \phi(k_j)\right)}, \\    
-    &= \frac{\phi(q_i)^T S}{\phi(q_i)^T z}.                                   
-    \end{aligned}                                                             
+          N                        ⎛ N          ⎞                             
+          ∑  φ(qᵢ)ᵀφ(kⱼ)vⱼ   φ(qᵢ)ᵀ⎜ ∑  φ(kⱼ)vⱼᵀ⎟                             
+         j=1                       ⎝j=1         ⎠                             
+    oᵢ = ───────────────── = ────────────────────,                            
+           N                        ⎛ N       ⎞                               
+           ∑  φ(qᵢ)ᵀφ(kⱼ)     φ(qᵢ)ᵀ⎜ ∑  φ(kⱼ)⎟                               
+          j=1                       ⎝j=1      ⎠                               
+         φ(qᵢ)ᵀS                                                              
+       = ─────── .                                                            
+         φ(qᵢ)ᵀz                                                              
                                                                             
   [Image: 线性注意力示意图：Q 与预先计算的 K^T V 摘要相乘得到 O。]            
                                                                             
@@ -41,8 +46,8 @@ konakona · blog.konakona.dev                                                中
                                                                             
    方法            │ 时间复杂度     │ 显存           │ 备注                   
   ─────────────────┼────────────────┼────────────────┼────────────────────────
-   Softmax 注意力  │ $O(N^2 d)$     │ $O(N^2)$       │ 需要完整的分数矩阵     
-   线性注意力      │ $O(N d^2)$     │ $O(d^2)$       │ 状态大小与序列长度无关 
+   Softmax 注意力  │ O(N²d)         │ O(N²)          │ 需要完整的分数矩阵     
+   线性注意力      │ O(Nd²)         │ O(d²)          │ 状态大小与序列长度无关 
                                                                             
   在命令行里，echo $HOME 中的美元符号不是公式；代码块里也一样：               
                                                                             
@@ -52,10 +57,9 @@ konakona · blog.konakona.dev                                                中
                                                                             
   ## 因果情形                                                                 
                                                                             
-  在自回归生成中只能看到前缀，因此可以递推地维护                              
-  $S_t = S_{t-1} + \phi(k_t) v_t^T$ 与 $z_t = z_{t-1} + \phi(k_t)$，每一步的成
-  本都与已经生成的长度无关，这正是它被称为“像循环神经网络一样运行的           
-  Transformer”的原因。                                                        
+  在自回归生成中只能看到前缀，因此可以递推地维护 Sₜ = Sₜ₋₁ + φ(kₜ)vₜᵀ 与      
+  zₜ = zₜ₋₁ + φ(kₜ)，每一步的成本都与已经生成的长度无关，这正是它被称为“像循环
+  神经网络一样运行的 Transformer”的原因。                                     
 ────────────────────────────────────────────────────────────────────────────────
 https://blog.konakona.dev/zh/posts/attention-notes/
   0%  j/k · h back · ? help · y link · ^D/^U · gg/G · ^L lang · t theme
