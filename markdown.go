@@ -276,7 +276,7 @@ func (c *renderCache) render(p *post, width int, style string, profile colorprof
 	if value, ok := c.values[key]; ok {
 		return value, nil
 	}
-	value, err := renderMarkdown(preprocess(p.Body, webURL(p.Slug, p.Lang)), width, style)
+	value, err := renderMarkdown(preprocess(p.Body, p.URL), width, style)
 	if err != nil {
 		return "", fmt.Errorf("render %s: %w", p.File, err)
 	}

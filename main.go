@@ -6,8 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -18,12 +20,20 @@ import (
 
 type config struct {
 	Content, Listen, HostKey, Lang, Theme    string
+	SiteURL, Title                           string
 	Idle, Duration                           time.Duration
 	MaxSessions, MaxConnections, PerIP, Rate int
 }
 
 func defaults() config {
-	return config{Content: os.Getenv("BLOG_CONTENT_DIR"), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
+	return config{Content: os.Getenv("BLOG_CONTENT_DIR"), SiteURL: envOr("BLOG_SITE_URL", defaultSite.URL), Title: envOr("BLOG_TITLE", defaultSite.Title), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func parseConfig(args []string) (string, config, error) {
@@ -37,6 +47,8 @@ func parseConfig(args []string) (string, config, error) {
 	}
 	f := flag.NewFlagSet(mode, flag.ContinueOnError)
 	f.StringVar(&cfg.Content, "content", cfg.Content, "posts directory containing zh/ and en/ (also BLOG_CONTENT_DIR)")
+	f.StringVar(&cfg.SiteURL, "site-url", cfg.SiteURL, "public base URL of the blog, for article links (also BLOG_SITE_URL)")
+	f.StringVar(&cfg.Title, "title", cfg.Title, "blog name shown in the header (also BLOG_TITLE)")
 	f.StringVar(&cfg.Listen, "listen", cfg.Listen, "SSH listen address")
 	f.StringVar(&cfg.HostKey, "host-key", cfg.HostKey, "persistent SSH host private key")
 	f.StringVar(&cfg.Lang, "lang", cfg.Lang, "initial language override: zh or en (also BLOG_TERMINAL_LANG)")
@@ -55,6 +67,12 @@ func parseConfig(args []string) (string, config, error) {
 	}
 	if cfg.Lang != "" && cfg.Lang != "zh" && cfg.Lang != "zh-CN" && cfg.Lang != "en" {
 		return "", cfg, fmt.Errorf("--lang must be zh or en")
+	}
+	if u, err := url.Parse(cfg.SiteURL); err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return "", cfg, fmt.Errorf("--site-url must be an absolute http(s) URL")
+	}
+	if strings.TrimSpace(cfg.Title) == "" {
+		return "", cfg, fmt.Errorf("--title must not be empty")
 	}
 	if cfg.Theme != "auto" && cfg.Theme != "dark" && cfg.Theme != "light" {
 		return "", cfg, fmt.Errorf("--theme must be auto, dark, or light")
@@ -77,6 +95,7 @@ func run(args []string) error {
 	if err != nil {
 		return fmt.Errorf("load posts: %w", err)
 	}
+	c.setSite(site{URL: strings.TrimSuffix(cfg.SiteURL, "/"), Title: cfg.Title})
 	if len(c.Posts) == 0 {
 		return fmt.Errorf("no published Markdown posts found in %s", cfg.Content)
 	}
@@ -93,7 +112,7 @@ func run(args []string) error {
 	defer stop()
 	done := make(chan error, 1)
 	go func() { done <- srv.ListenAndServe() }()
-	log.Printf("konakona terminal: %d posts; listening %s", len(c.Posts), cfg.Listen)
+	log.Printf("blog-terminal: %d posts from %s; listening %s", len(c.Posts), cfg.Content, cfg.Listen)
 	select {
 	case err := <-done:
 		if errors.Is(err, ssh.ErrServerClosed) {

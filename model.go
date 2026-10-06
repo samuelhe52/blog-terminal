@@ -394,7 +394,7 @@ func (m model) brand() string {
 		label = "中文"
 	}
 	right := m.accent(label)
-	left := m.accent("konakona") + m.muted(" · blog.konakona.dev")
+	left := m.accent(m.catalog.Site.Title) + m.muted(" · "+m.catalog.Site.host())
 	left = ansi.Truncate(left, max(0, m.width-ansi.StringWidth(right)-1), "…")
 	gap := max(0, m.width-ansi.StringWidth(left)-ansi.StringWidth(right))
 	return ansi.Truncate(left+strings.Repeat(" ", gap)+right, m.width, "")
@@ -428,7 +428,7 @@ func (m model) chrome() (string, string) {
 			header += "\n" + m.accent(m.notice())
 		}
 		header += "\n" + rule
-		footer := rule + "\n" + m.muted(webURL(m.article.Slug, m.article.Lang)) + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100), true)
+		footer := rule + "\n" + m.muted(m.article.URL) + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100), true)
 		return fitWidth(header, m.width), fitWidth(footer, m.width)
 	}
 	location := "/"

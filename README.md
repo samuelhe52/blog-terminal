@@ -13,7 +13,10 @@ from a checkout of the [Blog repo](https://github.com/samuelhe52/Blog).
 
 ## Running locally
 
-Requires Go 1.27 and a checkout of the Blog repo.
+Requires Go 1.27 and a directory of posts laid out like the Blog repo's
+`src/content/posts` (`zh/` and `en/` subdirectories of Markdown files with the
+Blog's frontmatter). The reader holds no content of its own; any checkout,
+export, or synced copy of that directory works.
 
 ```sh
 go build -o blog-terminal .
@@ -64,6 +67,8 @@ Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work.
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--content` | `$BLOG_CONTENT_DIR` | Posts directory containing `zh/` and `en/` (required) |
+| `--site-url` | `https://blog.konakona.dev` | Public site that article links point to (`BLOG_SITE_URL`) |
+| `--title` | `konakona` | Blog name in the header (`BLOG_TITLE`) |
 | `--lang` | from session | `zh` or `en` |
 | `--theme` | `auto` | `auto`, `dark`, or `light` |
 | `--listen` | `127.0.0.1:2222` | SSH listen address |
@@ -101,14 +106,14 @@ go vet ./...
 go test ./...
 ```
 
-Tests run against a snapshot of the blog's posts in `testdata/posts/`, so a
-Blog checkout is not needed. See [docs/testing.md](docs/testing.md) for how to
-refresh the snapshot and the reference captures, and
+Tests run against a small made-up blog in `testdata/fixture/`, so no real
+posts are needed. To also check rendering of the live posts, set
+`BLOG_CONTENT_DIR` when running the tests. See
+[docs/testing.md](docs/testing.md) for details, and
 [docs/architecture.md](docs/architecture.md) for an overview of the code.
 
 Public deployment is not set up yet.
 
 ## License
 
-Code is licensed under MIT. The post snapshot and captures under `testdata/`
-are licensed under CC BY 4.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

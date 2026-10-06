@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/colorprofile"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func fixtureCatalog(t *testing.T) *catalog {
@@ -49,7 +52,7 @@ func TestLoader(t *testing.T) {
 	if fallback || p.Folder != "english/path" {
 		t.Fatalf("wrong English pair: %+v", p)
 	}
-	if webURL(p.Slug, en) != siteURL+"/en/posts/different/slug/" || webURL(p.Slug, zh) != siteURL+"/zh/posts/different/slug/" {
+	if defaultSite.postURL(p.Slug, en) != defaultSite.URL+"/en/posts/different/slug/" || defaultSite.postURL(p.Slug, zh) != defaultSite.URL+"/zh/posts/different/slug/" {
 		t.Fatal("URLs lost nested slug")
 	}
 	fixture(t, root, "en/duplicate.md", "en", "different/slug", false)
@@ -213,5 +216,30 @@ func TestFolderFallbackIsWholeStructure(t *testing.T) {
 	p, missing := c.resolve("only-zh", en)
 	if !missing || p.Lang != zh {
 		t.Fatal("en article route should fall back to zh")
+	}
+}
+
+func TestSiteOverride(t *testing.T) {
+	c := fixtureCatalog(t)
+	c.setSite(site{URL: "https://notes.example.org", Title: "example"})
+	p, _ := c.resolve("course-notes/lecture-0-search", en)
+	if p.URL != "https://notes.example.org/en/posts/course-notes/lecture-0-search/" {
+		t.Fatalf("article URL: %s", p.URL)
+	}
+	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 24)
+	if brand := ansi.Strip(m.brand()); !strings.HasPrefix(brand, "example · notes.example.org") {
+		t.Fatalf("header: %q", brand)
+	}
+	m.open(p)
+	if _, footer := m.chrome(); !strings.Contains(ansi.Strip(footer), p.URL) {
+		t.Fatal("footer must link to the configured site")
+	}
+	out, err := m.cache.render(p, 80, "dark", colorprofile.TrueColor)
+	if err != nil || !strings.Contains(ansi.Strip(out), "https://example.com/course/lecture-0") {
+		t.Fatalf("absolute links must survive: %v", err)
+	}
+	r, _ := c.resolve("reference/tips-and-tricks", en)
+	if out, _ := m.cache.render(r, 120, "dark", colorprofile.TrueColor); !strings.Contains(ansi.Strip(out), "https://notes.example.org/lab/demo/") {
+		t.Fatal("relative links must resolve against the configured site")
 	}
 }

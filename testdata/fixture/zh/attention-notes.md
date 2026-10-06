@@ -1,0 +1,53 @@
+---
+title: "线性注意力笔记"
+description: "把 softmax 注意力改写成可分解核函数之后，复杂度从平方降到线性。"
+date: 2026-05-20
+lang: "zh-CN"
+translationSlug: "attention-notes"
+author: "fixture"
+---
+
+> 这是一篇用于测试终端阅读器的示例文章，内容参考了 [Transformers are RNNs](https://arxiv.org/abs/2006.16236) 一文，但所有推导与例子都为测试而自拟，不代表任何真实博客的内容。
+
+本文先回顾标准的 softmax 注意力，再说明为什么把相似度函数换成可分解的核函数之后，整个计算可以按照序列长度线性增长，并顺带讨论因果情形下如何以递推方式维护状态，以及这种写法与循环神经网络之间的联系。
+
+## Softmax 注意力
+
+令 $Q, K \in \mathbb{R}^{N \times d_k}$ 分别为查询矩阵和键矩阵，$V \in \mathbb{R}^{N \times d_v}$ 为值矩阵。标准的缩放点积注意力为
+
+$$
+O = \operatorname{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V,
+$$
+
+计算所有查询与键两两之间分数的复杂度为 $O(N^2 d_k)$，对值加权求和的复杂度为 $O(N^2 d_v)$。由于此计算复杂度与 $N$ 呈平方关系，处理长上下文时效率很低。
+
+## 线性注意力
+
+使用特征映射 $\phi: \mathbb{R}^{d_k} \to \mathbb{R}^{r}$ 定义 $\kappa(q_i, k_j) = \phi(q_i)^T \phi(k_j)$，代入后得到：
+
+$$
+\begin{aligned}
+o_i &= \frac{\sum_{j=1}^{N} \phi(q_i)^T \phi(k_j) v_j}{\sum_{j=1}^{N} \phi(q_i)^T \phi(k_j)} = \frac{\phi(q_i)^T \left(\sum_{j=1}^{N} \phi(k_j) v_j^T\right)}{\phi(q_i)^T \left(\sum_{j=1}^{N} \phi(k_j)\right)}, \\
+&= \frac{\phi(q_i)^T S}{\phi(q_i)^T z}.
+\end{aligned}
+$$
+
+<img src="/images/fixture/linear-attention.svg" alt="线性注意力示意图：Q 与预先计算的 K^T V 摘要相乘得到 O。" width="640" height="300" loading="lazy" style="display: block; max-width: 100%; margin: 2rem auto;" />
+
+### 复杂度对比
+
+| 方法 | 时间复杂度 | 显存 | 备注 |
+| --- | --- | --- | --- |
+| Softmax 注意力 | $O(N^2 d)$ | $O(N^2)$ | 需要完整的分数矩阵 |
+| 线性注意力 | $O(N d^2)$ | $O(d^2)$ | 状态大小与序列长度无关 |
+
+在命令行里，`echo $HOME` 中的美元符号不是公式；代码块里也一样：
+
+```bash
+export STATE_DIM=64
+echo "state size: ${STATE_DIM}x${STATE_DIM}, cost: $((STATE_DIM * STATE_DIM)) floats"
+```
+
+## 因果情形
+
+在自回归生成中只能看到前缀，因此可以递推地维护 $S_t = S_{t-1} + \phi(k_t) v_t^T$ 与 $z_t = z_{t-1} + \phi(k_t)$，每一步的成本都与已经生成的长度无关，这正是它被称为“像循环神经网络一样运行的 Transformer”的原因。

@@ -26,8 +26,10 @@ startup, so a bad post is caught immediately rather than at read time.
 
 Posts are sorted newest first. Folders come from each file's path. Chinese
 and English versions are paired by `translationSlug`, which also determines
-the post URL, including any folder segments. URLs follow the website:
-`https://blog.konakona.dev/zh/posts/<slug>/` and `/en/posts/<slug>/`.
+the post URL, including any folder segments. URLs follow the website's
+routes, `<site>/zh/posts/<slug>/` and `<site>/en/posts/<slug>/`, where
+`<site>` is `--site-url` (default `https://blog.konakona.dev`). Relative links
+and images in posts resolve against the article's URL on that site.
 
 ## Language fallback
 

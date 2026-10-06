@@ -13,14 +13,14 @@ import (
 )
 
 func TestPreprocess(t *testing.T) {
-	base := webURL("folder/article", en)
+	base := defaultSite.postURL("folder/article", en)
 	for _, tt := range []struct {
 		name, source string
 		contains     []string
 	}{
-		{"HTML image", `<img alt="A &amp; B_中文" src='/images/a.svg' width="600" />`, []string{"[Image: A & B_中文]", siteURL + "/images/a.svg"}},
-		{"Markdown destinations", `[root](/lab/a/) ![plot](../plot.png) [nested](./a_(b).md "title")`, []string{siteURL + "/lab/a/", siteURL + "/en/posts/folder/plot.png", siteURL + `/en/posts/folder/article/a_(b).md "title"`}},
-		{"reference links", "[x]: /images/x.png \"title\"\n![plot][x]", []string{siteURL + "/images/x.png"}},
+		{"HTML image", `<img alt="A &amp; B_中文" src='/images/a.svg' width="600" />`, []string{"[Image: A & B_中文]", defaultSite.URL + "/images/a.svg"}},
+		{"Markdown destinations", `[root](/lab/a/) ![plot](../plot.png) [nested](./a_(b).md "title")`, []string{defaultSite.URL + "/lab/a/", defaultSite.URL + "/en/posts/folder/plot.png", defaultSite.URL + `/en/posts/folder/article/a_(b).md "title"`}},
+		{"reference links", "[x]: /images/x.png \"title\"\n![plot][x]", []string{defaultSite.URL + "/images/x.png"}},
 		{"inline math", `Text $a_i * b_j + \alpha$ end.`, []string{codeSpan(strings.ReplaceAll(`$a_i * b_j + \alpha$`, " ", "\u00a0"))}},
 		{"display math", "Before\n$$\na_i * b_j + \\alpha\n\\frac{1}{2}\n$$\nAfter", []string{"```text\na_i * b_j + \\alpha\n\\frac{1}{2}\n```"}},
 		{"code span", "`$HOME * a_i \\x` and ``$x`y$``", []string{"`$HOME * a_i \\x`", "``$x`y$``"}},
@@ -64,7 +64,7 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 	formulas := []string{`$S \in \mathbb{R}^{r \times d_v}$`, `$z \in \mathbb{R}^{r}$`, `$O(N^2 d_k)$`}
 	body := "令 $Q$ 分别。其中，" + formulas[0] + "、" + formulas[1] + "。复杂度为 " + formulas[2] + "。"
 	for _, width := range []int{40, 60, 80, 120} {
-		out, err := renderMarkdown(preprocess(body, siteURL), width, "dark")
+		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "dark")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,17 +119,15 @@ func TestEveryPostNeedsNoFinalGuard(t *testing.T) {
 
 func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
 	t.Helper()
-	{
-		for _, width := range []int{60, 80, 120} {
-			for _, theme := range []string{"dark", "light"} {
-				out, err := renderMarkdown(preprocess(p.Body, webURL(p.Slug, p.Lang)), width, theme)
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertWidth(t, out, width)
-				if guarded := fitWidth(out, width); guarded != out {
-					t.Fatalf("final guard changed normal output: %s %s/%s at %d (%s)", corpus, p.Lang, p.Slug, width, theme)
-				}
+	for _, width := range []int{60, 80, 120} {
+		for _, theme := range []string{"dark", "light"} {
+			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, theme)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertWidth(t, out, width)
+			if guarded := fitWidth(out, width); guarded != out {
+				t.Fatalf("final guard changed normal output: %s %s/%s at %d (%s)", corpus, p.Lang, p.Slug, width, theme)
 			}
 		}
 	}
@@ -138,7 +136,7 @@ func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
 func TestQuoteAndCodeContinuations(t *testing.T) {
 	quote := "> " + strings.Repeat("中文引用 with some English ", 12) + "\n>\n> Another paragraph.\n>\n> > Nested quote with a long " + strings.Repeat("word ", 30)
 	for _, width := range []int{40, 60, 80, 120} {
-		out, err := renderMarkdown(preprocess(quote, siteURL), width, "dark")
+		out, err := renderMarkdown(preprocess(quote, defaultSite.URL), width, "dark")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -149,7 +147,7 @@ func TestQuoteAndCodeContinuations(t *testing.T) {
 			}
 		}
 		code := "```text\n    " + strings.Repeat("value ", 30) + "\n" + strings.Repeat("identifier_", 30) + "\n```"
-		out, err = renderMarkdown(preprocess(code, siteURL), width, "dark")
+		out, err = renderMarkdown(preprocess(code, defaultSite.URL), width, "dark")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -213,7 +211,7 @@ func TestCodeAndMathSoftWrapMarkers(t *testing.T) {
 			t.Fatalf("soft wrapping changed code whitespace: %q", reconstructed.String())
 		}
 		body := "```sh\n" + line + "\necho 'real newline'\n```\n\n$$\n" + strings.Repeat(`\left(QK^\top\right)V,`, 8) + "\n$$"
-		out, err := renderMarkdown(preprocess(body, siteURL), width, "dark")
+		out, err := renderMarkdown(preprocess(body, defaultSite.URL), width, "dark")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -259,21 +257,19 @@ func TestEveryPostWidth(t *testing.T) {
 
 func checkWidths(t *testing.T, corpus string, p *post) {
 	t.Helper()
-	{
-		for _, width := range []int{40, 60, 80, 120} {
-			for _, style := range []string{"dark", "light"} {
-				t.Run(fmt.Sprintf("%s/%s/%s/%d/%s", corpus, p.Lang, p.Slug, width, style), func(t *testing.T) {
-					var cache renderCache
-					out, err := cache.render(p, width, style, colorprofile.TrueColor)
-					if err != nil {
-						t.Fatal(err)
-					}
-					assertWidth(t, out, width)
-					if strings.TrimSpace(ansi.Strip(out)) == "" {
-						t.Fatal("empty rendered post")
-					}
-				})
-			}
+	for _, width := range []int{40, 60, 80, 120} {
+		for _, style := range []string{"dark", "light"} {
+			t.Run(fmt.Sprintf("%s/%s/%s/%d/%s", corpus, p.Lang, p.Slug, width, style), func(t *testing.T) {
+				var cache renderCache
+				out, err := cache.render(p, width, style, colorprofile.TrueColor)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertWidth(t, out, width)
+				if strings.TrimSpace(ansi.Strip(out)) == "" {
+					t.Fatal("empty rendered post")
+				}
+			})
 		}
 	}
 }

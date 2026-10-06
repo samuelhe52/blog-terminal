@@ -1,0 +1,51 @@
+konakona · blog.konakona.dev                                             English
+
+Setting Up a Two-Node Inference Server
+2026-06-30
+────────────────────────────────────────────────────────────────────────────────
+  │ The full procedure below is long. You can skip to Pitfalls and fixes      
+  │ https://blog.konakona.dev/en/posts/server-setup/#pitfalls-and-fixes if you
+  │ only want the troubleshooting notes.                                      
+
+  ## Environment                                                              
+                                                                            
+  Set these on both machines:                                                 
+                                                                            
+    export WORKSPACE=/home/YOUR_USER/inference-setup                          
+    export MODEL_PATH="$WORKSPACE/models/example-model"                       
+    export WORKER_A_IP=10.0.0.11                                              
+    export WORKER_B_IP=10.0.0.12                                              
+                                                                            
+  WORKER_A_IP and WORKER_B_IP must be private addresses that the two servers  
+  can use to reach each other directly.                                       
+                                                                            
+  ## Check the image                                                          
+                                                                            
+    docker pull "$SERVING_IMAGE"                                              
+    docker image inspect "$SERVING_IMAGE" \                                   
+      --format 'id={{.Id}} architecture={{.Architecture}} created={{.Created  
+    ↪   }} quoted argument with spaces'                                       
+                                                                            
+  1. Pull the image on both machines.                                         
+  2. Compare the image IDs:                                                   
+    • they must match exactly;                                                
+    • otherwise re-pull with --platform linux/amd64.                          
+  3. Start the workers.                                                       
+                                                                            
+  ## Pitfalls and fixes                                                       
+                                                                            
+   Symptom                │ Cause                   │ Fix                     
+  ────────────────────────┼─────────────────────────┼─────────────────────────
+   Tasks fail during      │ Image pulls time out on │ Pre-pull every image    
+   setup before the agent │ an unstable network     │ and verify its          
+   starts                 │                         │ architecture before     
+                          │                         │ starting the run        
+   Router returns 502     │ A worker is still       │ Wait for both health    
+                          │ loading weights         │ checks                  
+                                                                            
+    def ready(workers):                                                       
+        return all(w.health() == "ok" for w in workers)  # a deliberately lo  
+    ↪     ng comment that will not fit in narrow terminals                    
+────────────────────────────────────────────────────────────────────────────────
+https://blog.konakona.dev/en/posts/server-setup/
+  0%  j/k · h back · ? help · ^D/^U · gg/G · ^L lang · t theme

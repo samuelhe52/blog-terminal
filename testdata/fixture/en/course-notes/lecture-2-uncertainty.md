@@ -1,0 +1,52 @@
+---
+title: "Lecture 2: Uncertainty"
+description: "Course notes on uncertainty, written as test fixtures."
+date: 2026-01-24
+lang: "en"
+translationSlug: "course-notes/lecture-2-uncertainty"
+---
+
+## Overview
+
+These notes cover **uncertainty**. A *sentence* is a declarative statement that can be true or false, and logical connectives combine sentences:
+
+- AND: ∧
+- OR: ∨
+- NOT: ¬
+- IMPLIES: → (P → Q reads "P implies Q")
+
+| P | Q | P ∧ Q | P → Q |
+| --- | --- | --- | --- |
+| true | true | true | true |
+| true | false | false | false |
+| false | true | false | true |
+| false | false | false | true |
+
+## Example
+
+```python
+from collections import deque
+
+def breadth_first_search(start, goal, neighbors):
+    frontier = deque([start])
+    explored = set()
+    while frontier:
+        node = frontier.popleft()
+        if node == goal:
+            return node
+        explored.add(node)
+        frontier.extend(n for n in neighbors(node) if n not in explored and n not in frontier)
+    return None
+```
+
+## Notes
+
+Model checking enumerates every possible model and checks whether the knowledge base entails the query. It is correct but slow: with $ symbols there are ^n$ models.
+
+1. Enumerate all models.
+2. Keep the models where the knowledge base is true.
+3. Check the query in each remaining model.
+
+> A note in a quote: entailment means that in every model where the premise is true, the conclusion is also true.
+
+Further reading is linked from the [course page](https://example.com/course/lecture-2).

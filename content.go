@@ -16,7 +16,26 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-const siteURL = "https://blog.konakona.dev"
+// site identifies the blog whose content is served: its public base URL
+// (used for article links and resolving relative links) and display name.
+type site struct {
+	URL   string
+	Title string
+}
+
+var defaultSite = site{URL: "https://blog.konakona.dev", Title: "konakona"}
+
+// postURL follows the Astro blog's routes: /<lang>/posts/<translationSlug>/.
+func (s site) postURL(slug string, lang language) string {
+	return strings.TrimSuffix(s.URL, "/") + (&url.URL{Path: "/" + string(lang) + "/posts/" + slug + "/"}).EscapedPath()
+}
+
+func (s site) host() string {
+	if u, err := url.Parse(s.URL); err == nil && u.Host != "" {
+		return u.Host
+	}
+	return s.URL
+}
 
 type language string
 
@@ -44,20 +63,17 @@ type post struct {
 	Folder      string    `yaml:"-"`
 	Body        string    `yaml:"-"`
 	File        string    `yaml:"-"`
-}
-
-func webURL(slug string, lang language) string {
-	u := url.URL{Scheme: "https", Host: "blog.konakona.dev", Path: "/" + string(lang) + "/posts/" + slug + "/"}
-	return u.String()
+	URL         string    `yaml:"-"`
 }
 
 type catalog struct {
+	Site  site
 	Posts []*post
 	pairs map[string]map[language]*post
 }
 
 func loadCatalog(root string) (*catalog, error) {
-	c := &catalog{pairs: make(map[string]map[language]*post)}
+	c := &catalog{Site: defaultSite, pairs: make(map[string]map[language]*post)}
 	for _, lang := range []language{zh, en} {
 		dir := filepath.Join(root, string(lang))
 		err := filepath.WalkDir(dir, func(file string, d fs.DirEntry, err error) error {
@@ -90,6 +106,7 @@ func loadCatalog(root string) (*catalog, error) {
 				return err
 			}
 			p.Lang, p.File = lang, file
+			p.URL = c.Site.postURL(p.Slug, lang)
 			p.Folder = path.Dir(filepath.ToSlash(rel))
 			if p.Folder == "." {
 				p.Folder = ""
@@ -115,6 +132,14 @@ func loadCatalog(root string) (*catalog, error) {
 		return c.Posts[i].Slug < c.Posts[j].Slug
 	})
 	return c, nil
+}
+
+// setSite points the catalog's article links at another deployment.
+func (c *catalog) setSite(s site) {
+	c.Site = s
+	for _, p := range c.Posts {
+		p.URL = s.postURL(p.Slug, p.Lang)
+	}
 }
 
 func parsePost(data []byte) (*post, error) {

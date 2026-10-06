@@ -167,7 +167,7 @@ func TestServeSSHCLI(t *testing.T) {
 	if _, err := io.WriteString(input, "/Linear Attention\r\r"); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, screen, webURL("attention-notes", en))
+	waitFor(t, screen, defaultSite.postURL("attention-notes", en))
 	if _, err := io.WriteString(input, "\x0c"); err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestSSHFilterEscapeSequence(t *testing.T) {
 				if _, err := io.WriteString(input, sequence); err != nil {
 					t.Fatal(err)
 				}
-				waitFor(t, screen, webURL("server-setup", en))
+				waitFor(t, screen, defaultSite.postURL("server-setup", en))
 				if _, err := io.WriteString(input, "\x03"); err != nil {
 					t.Fatal(err)
 				}
@@ -469,7 +469,7 @@ func TestLimits(t *testing.T) {
 }
 
 func TestFlags(t *testing.T) {
-	for _, args := range [][]string{nil, {"unknown"}, {"serve", "--lang", "fr"}, {"local", "--theme", "auto-dark"}, {"serve", "--per-ip", "0"}, {"serve", "--idle-timeout", "0s"}} {
+	for _, args := range [][]string{nil, {"unknown"}, {"serve", "--lang", "fr"}, {"local", "--theme", "auto-dark"}, {"serve", "--per-ip", "0"}, {"serve", "--idle-timeout", "0s"}, {"serve", "--site-url", "blog.example.com"}, {"serve", "--title", " "}} {
 		if _, _, err := parseConfig(args); err == nil {
 			t.Fatalf("invalid flags accepted: %v", args)
 		}
