@@ -119,8 +119,10 @@ command with a quoted argument that wraps with `↪`. Plain-text yanking drops
 styling, margins, quote bars, and trailing spaces and joins `↪` lines. `c`
 copies the block at the top of the screen or the next one, `[` and `]`
 (with counts) land one line above a block and skip display math. Visual
-mode is tested for its motions, the footer's mode and line count, the
-esc / q order, leaving on rerender, and drawing: selected rows only gain the
+mode is tested for its two steps (the cursor starts mid-screen or on the
+search match and moves alone until `v` drops the anchor), its motions
+including `H`/`M`/`L`, `n` and `o`, the footer's mode and line count, the
+esc / q / v order, leaving on rerender, and drawing: selected rows only gain the
 `▌` in their first cell, other rows and the cached render are unchanged,
 widths still fit, and ASCII sessions get no colors.
 

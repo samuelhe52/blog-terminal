@@ -45,6 +45,7 @@ type model struct {
 	noteID          int    // nonzero while note shows
 	doc             rendered
 	visual          bool // line-wise selection from anchor to cursor
+	selecting       bool // the anchor is down; before that it follows the cursor
 	anchor, cursor  int
 	copied          codeFlash
 }
@@ -385,9 +386,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "N":
 				return m, m.stepMatch(count, false)
 			case "v", "V":
-				// Start on the current search match when it is on screen.
-				line := v.YOffset()
-				if l, ok := m.currentMatchLine(); ok && l >= line && l < line+v.Height() {
+				// Start on the current search match when it is on screen,
+				// otherwise in the middle of the screen.
+				line := m.screenLine(1, 2)
+				if l, ok := m.currentMatchLine(); ok && l >= v.YOffset() && l < v.YOffset()+v.Height() {
 					line = l
 				}
 				m.startVisual(line)
@@ -532,7 +534,10 @@ func (m model) hintLine(status string, reader bool) string {
 		}
 	}
 	if m.visual {
-		keys = []string{"j/k extend", "y yank", "esc leave"}
+		keys = []string{"j/k move", "v select", "H/M/L", "y yank line", "esc leave"}
+		if m.selecting {
+			keys = []string{"j/k extend", "y yank", "o other end", "esc leave"}
+		}
 	}
 	if m.noteID != 0 {
 		status += m.accent(m.note) + "  "
@@ -656,7 +661,8 @@ var helpRows = [][2]string{
 	{"/ in a post", "search its text (↵ keep, esc clear)"},
 	{"n / N", "next / previous match"},
 	{"y", "copy the web link to the post"},
-	{"v / V", "select lines (j/k extend, y yank, esc leave)"},
+	{"v / V", "line cursor (j/k H/M/L n/N move, v select, esc leave)"},
+	{"v in visual", "select from the cursor (j/k extend, o other end, y yank)"},
 	{"c", "copy the code block at the top of the screen"},
 	{"[ / ]", "previous / next code block"},
 	{"s", "show the post's Markdown source / the rendered post"},

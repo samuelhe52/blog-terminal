@@ -338,10 +338,14 @@ doubles rendering time for articles with code, but only on a cache miss.
 below it, and highlights it while the note shows. `[` and `]` scroll so a
 block starts one line below the top of the screen.
 
-Reading stays scroll-only. A line cursor exists only in visual mode: `v`
-starts it on the top line of the screen (`startVisual` takes any line), and
-motions move it, scrolling to keep it visible. `y` copies the lines from the
-anchor to the cursor:
+Reading stays scroll-only. A line cursor exists only in visual mode, which
+has two steps, as in tmux's copy mode. `v` puts the cursor on the current
+search match if it is on screen, otherwise in the middle of the screen
+(`startVisual` takes any line). Motions, `H`/`M`/`L` and `n`/`N` move it
+alone, scrolling only to keep it visible; the anchor follows it. A second
+`v` drops the anchor, motions then extend the selection, and `o` swaps the
+two ends. `y` copies the lines from the anchor to the cursor, a single line
+before the anchor is down:
 
 - Lines of a known code block become their source lines. A wrapped line
   is copied whole even if only part of it is selected, as in vim's

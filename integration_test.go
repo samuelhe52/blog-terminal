@@ -99,6 +99,11 @@ func TestVisualStartsAtSearchMatch(t *testing.T) {
 	if !m.visual || m.anchor != line || m.cursor != line {
 		t.Fatalf("v must start on the match at %d, got %d", line, m.anchor)
 	}
+	// n moves the visual cursor to the next match, scrolling if needed.
+	m, _ = press(m, "n")
+	if next, _ := m.currentMatchLine(); next == line || m.cursor != next || m.anchor != next {
+		t.Fatalf("n must move the cursor to the next match %d, got %d", next, m.cursor)
+	}
 	// esc leaves visual mode first, then clears the search, then closes.
 	m, _ = press(m, "esc")
 	if m.visual || m.search.query == "" || m.article == nil {
