@@ -27,6 +27,7 @@ type model struct {
 	viewport        viewport.Model
 	filter          textinput.Model
 	filtering       bool
+	search          postSearch
 	help            bool
 	count           int
 	pendingG        bool
@@ -81,6 +82,7 @@ func newModel(c *catalog, lang language, theme string, profile colorprofile.Prof
 	m.filter.Prompt, m.filter.Placeholder, m.filter.CharLimit = "Filter: ", "Search posts…", 120
 	m.filter.SetWidth(max(1, m.width-10))
 	m.filter.SetVirtualCursor(true)
+	m.search.input = newSearchInput(max(1, m.width-10))
 	m.styleFilter()
 	m.refreshListing()
 	return m
@@ -99,6 +101,7 @@ func (m model) palette() theme {
 func (m *model) closeArticle() {
 	m.article = nil
 	m.err = nil
+	m.clearSearch()
 	m.refreshListing()
 }
 
@@ -119,6 +122,7 @@ func (m *model) refreshListing() {
 func (m *model) open(p *post) {
 	m.article, m.articleFallback = m.catalog.resolve(p.Slug, m.lang)
 	m.err = nil
+	m.clearSearch()
 	m.renderArticle(false)
 }
 
@@ -140,6 +144,7 @@ func (m *model) renderArticle(preserve bool) {
 	} else {
 		m.viewport.GotoTop()
 	}
+	m.refreshSearch()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -147,6 +152,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, min(msg.Width, 512)), max(1, min(msg.Height, 256))
 		m.filter.SetWidth(max(1, m.width-10))
+		m.search.input.SetWidth(max(1, m.width-10))
 		m.renderArticle(true)
 		return m, nil
 	case tea.ColorProfileMsg:
@@ -184,6 +190,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshListing()
 			return m, m.filter.Focus()
 		}
+		if msg.Code == '/' && msg.Mod == tea.ModAlt && m.article != nil && m.searchActive() {
+			return m, m.startSearch()
+		}
 		if key == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -212,6 +221,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selected = 0
 			m.refreshListing()
 			return m, cmd
+		}
+		if m.search.typing {
+			return m.updateSearchInput(msg, key)
 		}
 		if m.picking {
 			choices := themeChoices()
@@ -300,6 +312,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.copy(p.URL, "Link copied")
 		case "q", "esc":
 			if m.article != nil {
+				if m.searchActive() {
+					m.clearSearch()
+					return m, nil
+				}
 				m.closeArticle()
 				return m, nil
 			}
@@ -345,6 +361,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "h", "left", "backspace":
 				m.closeArticle()
+			case "/":
+				return m, m.startSearch()
+			case "n":
+				return m, m.stepMatch(count, true)
+			case "N":
+				return m, m.stepMatch(count, false)
 			}
 			return m, nil
 		}
@@ -401,6 +423,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.filter, cmd = m.filter.Update(msg)
 		return m, cmd
 	}
+	if m.search.typing {
+		var cmd tea.Cmd
+		m.search.input, cmd = m.search.input.Update(msg)
+		return m, cmd
+	}
 	return m, nil
 }
 
@@ -429,6 +456,7 @@ func (m *model) styleFilter() {
 	s.Blurred = s.Focused
 	s.Cursor.Color = m.profile.Convert(lipgloss.Color(accent))
 	m.filter.SetStyles(s)
+	m.search.input.SetStyles(s)
 }
 
 func (m model) accent(s string) string {
@@ -468,13 +496,19 @@ func (m model) hintLine(status string, reader bool) string {
 		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "/ search", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+		if m.search.query != "" && !m.search.typing {
+			keys[3] = "n/N match"
+		}
 	}
 	if m.noteID != 0 {
 		status += m.accent(m.note) + "  "
 	}
 	if m.picking {
 		keys = []string{"j/k", "↵ apply", "esc cancel"}
+	}
+	if reader && m.search.typing {
+		keys = []string{"↵ keep", "esc cancel"}
 	}
 	available := max(0, m.width-ansi.StringWidth(status))
 	var hints []string
@@ -496,7 +530,11 @@ func (m model) chrome() (string, string) {
 			header += "\n" + m.accent(m.notice())
 		}
 		header += "\n" + rule
-		footer := rule + "\n" + m.muted(m.article.URL) + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100), true)
+		link := m.muted(m.article.URL)
+		if m.search.typing {
+			link = m.search.input.View()
+		}
+		footer := rule + "\n" + link + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100)+m.searchStatus(), true)
 		return fitWidth(header, m.width), fitWidth(footer, m.width)
 	}
 	location := "/"
@@ -575,6 +613,8 @@ var helpRows = [][2]string{
 	{"^F / ^B", "page down / up (also space, PgDn / PgUp)"},
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
 	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
+	{"/ in a post", "search its text (↵ keep, esc clear)"},
+	{"n / N", "next / previous match"},
 	{"y", "copy the web link to the post"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "choose a theme (↵ apply, esc cancel)"},
@@ -639,7 +679,7 @@ func (m model) View() tea.View {
 	} else if m.help {
 		content = m.helpView()
 	} else if m.article != nil {
-		content = m.viewport.View()
+		content = m.highlightSearch(m.viewport.View())
 	} else {
 		content = m.homeView(available)
 	}

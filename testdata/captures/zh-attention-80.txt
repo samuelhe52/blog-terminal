@@ -58,4 +58,4 @@ konakona · blog.konakona.dev                                                中
   Transformer”的原因。                                                        
 ────────────────────────────────────────────────────────────────────────────────
 https://blog.konakona.dev/zh/posts/attention-notes/
-  0%  j/k · h back · ? help · y link · ^D/^U · gg/G · ^L lang · t theme
+  0%  j/k · h back · ? help · / search · y link · ^D/^U · gg/G · ^L lang
