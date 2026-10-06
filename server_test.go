@@ -129,7 +129,7 @@ func TestServeSSHCLI(t *testing.T) {
 	}
 	addr := l.Addr().String()
 	_ = l.Close()
-	content, err := filepath.Abs("testdata/posts")
+	content, err := filepath.Abs("testdata/fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,16 +162,16 @@ func TestServeSSHCLI(t *testing.T) {
 	t.Cleanup(func() { _ = client.Close() })
 	s, input, screen := interactive(t, client, "en_US.UTF-8")
 	waitFor(t, screen, "blog.konakona.dev")
-	waitFor(t, screen, "cs50-ai-notes/")
+	waitFor(t, screen, "course-notes/")
 	// Filter, leave filter editing, open the selected real article.
-	if _, err := io.WriteString(input, "/Test-Time Training\r\r"); err != nil {
+	if _, err := io.WriteString(input, "/Linear Attention\r\r"); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, screen, webURL("from-linear-attention-to-test-time-training", en))
+	waitFor(t, screen, webURL("attention-notes", en))
 	if _, err := io.WriteString(input, "\x0c"); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, screen, "从线性注意力到 Test-Time Training")
+	waitFor(t, screen, "线性注意力笔记")
 	if err := s.WindowChange(24, 60); err != nil {
 		t.Fatal(err)
 	}
@@ -247,14 +247,14 @@ func TestServeSSHCLI(t *testing.T) {
 
 func testConfig() config {
 	cfg := defaults()
-	cfg.Content = "testdata/posts"
+	cfg.Content = "testdata/fixture"
 	return cfg
 }
 
 func startTestServer(t *testing.T, cfg config) (string, *ssh.Server) {
 	t.Helper()
 	cfg.HostKey = filepath.Join(t.TempDir(), ".ssh/key")
-	srv, err := newServer(cfg, realCatalog(t))
+	srv, err := newServer(cfg, fixtureCatalog(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestSSHFilterEscapeSequence(t *testing.T) {
 	addr, _ := startTestServer(t, testConfig())
 	client := dialSSH(t, addr)
 	for _, width := range []int{40, 90} {
-		for _, sequence := range []string{"\x1b\x1b/qwen\r\r", "\x1b/qwen\r\r"} {
+		for _, sequence := range []string{"\x1b\x1b/two-node\r\r", "\x1b/two-node\r\r"} {
 			t.Run(fmt.Sprintf("width%d/%q", width, sequence), func(t *testing.T) {
 				s, input, screen := interactive(t, client, "en_US.UTF-8")
 				if err := s.WindowChange(32, width); err != nil {
@@ -305,7 +305,7 @@ func TestSSHFilterEscapeSequence(t *testing.T) {
 				if _, err := io.WriteString(input, sequence); err != nil {
 					t.Fatal(err)
 				}
-				waitFor(t, screen, webURL("qwen38-terminal-bench-21-reproduction", en))
+				waitFor(t, screen, webURL("server-setup", en))
 				if _, err := io.WriteString(input, "\x03"); err != nil {
 					t.Fatal(err)
 				}
@@ -378,7 +378,7 @@ func TestSSHBackgroundQueryAndReply(t *testing.T) {
 	waitForRaw(t, screen, ansi.RequestBackgroundColor)
 	colorSequence := regexp.MustCompile(`38;5;\d+`)
 	palette := func(theme string) string {
-		m := newModel(realCatalog(t), en, theme, colorprofile.ANSI256, 80, 32)
+		m := newModel(fixtureCatalog(t), en, theme, colorprofile.ANSI256, 80, 32)
 		return colorSequence.FindString(m.accent("test"))
 	}
 	dark, light := palette("dark"), palette("light")

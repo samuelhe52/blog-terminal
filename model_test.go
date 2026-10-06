@@ -41,7 +41,7 @@ func press(m model, key string) (model, tea.Cmd) {
 }
 
 func TestModelNavigationFilterTranslationResize(t *testing.T) {
-	c := realCatalog(t)
+	c := fixtureCatalog(t)
 	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 24)
 	m, _ = press(m, "j")
 	if m.selected != 1 {
@@ -52,7 +52,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 		t.Fatal("k navigation")
 	}
 	m, _ = press(m, "enter")
-	if m.folder != "cs50-ai-notes" {
+	if m.folder != "course-notes" {
 		t.Fatal("enter folder")
 	}
 	m, _ = press(m, "enter")
@@ -88,7 +88,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 		t.Fatal("ctrl+b scroll")
 	}
 	m, _ = press(m, "q")
-	if m.article != nil || m.folder != "cs50-ai-notes" {
+	if m.article != nil || m.folder != "course-notes" {
 		t.Fatal("q reader back")
 	}
 	m, _ = press(m, "esc")
@@ -97,7 +97,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	}
 	m, _ = press(m, "ctrl+l")
 	m, _ = press(m, "/")
-	for _, r := range "Test-Time Training" {
+	for _, r := range "Linear Attention" {
 		m, _ = press(m, string(r))
 	}
 	if len(m.items) != 1 {
@@ -105,7 +105,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	}
 	m, _ = press(m, "enter")
 	m, _ = press(m, "enter")
-	if m.article == nil || m.article.Slug != "from-linear-attention-to-test-time-training" {
+	if m.article == nil || m.article.Slug != "attention-notes" {
 		t.Fatal("open filter result")
 	}
 	m, _ = press(m, "ctrl+l")
@@ -131,12 +131,12 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 
 func TestFilterLifecycleAndGlobalResults(t *testing.T) {
 	for _, width := range []int{40, 90} {
-		m := newModel(realCatalog(t), en, "dark", colorprofile.TrueColor, width, 32)
+		m := newModel(fixtureCatalog(t), en, "dark", colorprofile.TrueColor, width, 32)
 		m, _ = press(m, "/")
 		for _, r := range "lecture" {
 			m, _ = press(m, string(r))
 		}
-		if !m.filtering || len(m.items) != 7 || !strings.Contains(ansi.Strip(m.View().Content), "cs50-ai-notes/") {
+		if !m.filtering || len(m.items) != 3 || !strings.Contains(ansi.Strip(m.View().Content), "course-notes/") {
 			t.Fatal("root search must expose folder posts and their paths")
 		}
 		assertWidth(t, m.View().Content, width)
@@ -150,20 +150,20 @@ func TestFilterLifecycleAndGlobalResults(t *testing.T) {
 			t.Fatal("second Escape at root must not quit")
 		}
 		m, _ = press(m, "/")
-		for _, r := range "qwen" {
+		for _, r := range "two-node" {
 			m, _ = press(m, string(r))
 		}
 		m, _ = press(m, "enter")
-		if m.filtering || m.filter.Focused() || m.filter.Value() != "qwen" || len(m.items) != 1 {
+		if m.filtering || m.filter.Focused() || m.filter.Value() != "two-node" || len(m.items) != 1 {
 			t.Fatal("Enter must apply exactly the new query")
 		}
 		m, _ = press(m, "enter")
-		if m.article == nil || m.article.Slug != "qwen38-terminal-bench-21-reproduction" {
+		if m.article == nil || m.article.Slug != "server-setup" {
 			t.Fatal("reported Escape / search sequence opened wrong article")
 		}
 		m, _ = press(m, "esc")
 		m, _ = press(m, "/")
-		if !m.filtering || m.filter.Value() != "qwen" {
+		if !m.filtering || m.filter.Value() != "two-node" {
 			t.Fatal("slash must reopen the applied query without appending itself")
 		}
 		m, _ = press(m, "enter")
@@ -179,7 +179,7 @@ func TestFilterCoalescedEscapeKeys(t *testing.T) {
 		{Code: tea.KeyEscape, Mod: tea.ModAlt},
 		{Code: '/', Mod: tea.ModAlt},
 	} {
-		m := newModel(realCatalog(t), en, "dark", colorprofile.TrueColor, 80, 32)
+		m := newModel(fixtureCatalog(t), en, "dark", colorprofile.TrueColor, 80, 32)
 		m, _ = press(m, "/")
 		m, _ = press(m, "lecture")
 		updated, _ := m.Update(key)
@@ -203,7 +203,7 @@ func TestClientLanguageAndBackground(t *testing.T) {
 			t.Fatalf("language got %s want %s", got, tt.want)
 		}
 	}
-	m := newModel(realCatalog(t), en, "auto", colorprofile.ANSI256, 80, 24)
+	m := newModel(fixtureCatalog(t), en, "auto", colorprofile.ANSI256, 80, 24)
 	updated, _ := m.Update(tea.BackgroundColorMsg{Color: color.White})
 	m = updated.(model)
 	if m.theme != "light" {
@@ -223,10 +223,10 @@ func TestClientLanguageAndBackground(t *testing.T) {
 }
 
 func TestModelSmallWindowsAndIndependentSessions(t *testing.T) {
-	c := realCatalog(t)
+	c := fixtureCatalog(t)
 	a := newModel(c, zh, "dark", colorprofile.TrueColor, 80, 24)
 	b := newModel(c, en, "light", colorprofile.ANSI, 80, 24)
-	p, _ := c.resolve("from-linear-attention-to-test-time-training", zh)
+	p, _ := c.resolve("attention-notes", zh)
 	a.open(p)
 	for _, width := range []int{1, 2, 10, 40, 60, 80, 120} {
 		for _, height := range []int{1, 8, 24, 50} {
@@ -245,8 +245,8 @@ func TestModelSmallWindowsAndIndependentSessions(t *testing.T) {
 }
 
 func TestChromeHeaderAndSingleLineHints(t *testing.T) {
-	c := realCatalog(t)
-	p, _ := c.resolve("from-linear-attention-to-test-time-training", zh)
+	c := fixtureCatalog(t)
+	p, _ := c.resolve("attention-notes", zh)
 	for _, width := range []int{40, 60, 80, 120} {
 		for _, lang := range []language{zh, en} {
 			m := newModel(c, lang, "dark", colorprofile.TrueColor, width, 32)
@@ -282,8 +282,8 @@ func TestChromeHeaderAndSingleLineHints(t *testing.T) {
 }
 
 func TestSessionCachesAreIndependent(t *testing.T) {
-	c := realCatalog(t)
-	p, _ := c.resolve("from-linear-attention-to-test-time-training", en)
+	c := fixtureCatalog(t)
+	p, _ := c.resolve("attention-notes", en)
 	original := p.Body
 	a := newModel(c, en, "dark", colorprofile.TrueColor, 80, 32)
 	b := newModel(c, en, "dark", colorprofile.TrueColor, 80, 32)
@@ -301,7 +301,7 @@ func TestSessionCachesAreIndependent(t *testing.T) {
 }
 
 func TestVimKeys(t *testing.T) {
-	c := realCatalog(t)
+	c := fixtureCatalog(t)
 	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 30)
 	seq := func(keys ...string) {
 		t.Helper()
@@ -349,7 +349,7 @@ func TestVimKeys(t *testing.T) {
 
 	// Folder: l enters, h leaves; posts open with l and close with h.
 	seq("l")
-	if m.folder != "cs50-ai-notes" {
+	if m.folder != "course-notes" {
 		t.Fatalf("l into folder: %q", m.folder)
 	}
 	seq("l")
@@ -381,7 +381,7 @@ func TestVimKeys(t *testing.T) {
 		t.Fatal("? closes help and keeps the article")
 	}
 	seq("h")
-	if m.article != nil || m.folder != "cs50-ai-notes" {
+	if m.article != nil || m.folder != "course-notes" {
 		t.Fatal("h closes post")
 	}
 	seq("h")

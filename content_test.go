@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func realCatalog(t *testing.T) *catalog {
+func fixtureCatalog(t *testing.T) *catalog {
 	t.Helper()
-	c, err := loadCatalog("testdata/posts")
+	c, err := loadCatalog("testdata/fixture")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,14 +59,14 @@ func TestLoader(t *testing.T) {
 }
 
 func TestRootSearchAllFoldersAndTranslations(t *testing.T) {
-	c := realCatalog(t)
+	c := fixtureCatalog(t)
 	for _, lang := range []language{zh, en} {
 		items, fallback := c.listing(lang, "", "LeCtUrE")
-		if fallback || len(items) != 7 {
+		if fallback || len(items) != 3 {
 			t.Fatalf("%s root lecture search: %d results, fallback=%v", lang, len(items), fallback)
 		}
 		for i, e := range items {
-			if e.Post == nil || e.Post.Folder != "cs50-ai-notes" || e.Post.Lang != en {
+			if e.Post == nil || e.Post.Folder != "course-notes" || e.Post.Lang != en {
 				t.Fatalf("wrong search result: %+v", e)
 			}
 			if i > 0 && e.Post.Date.After(items[i-1].Post.Date) {
@@ -125,10 +125,10 @@ func TestMalformedFrontmatter(t *testing.T) {
 	}
 }
 
-func TestRealCorpusListingAndFallback(t *testing.T) {
-	c := realCatalog(t)
-	if len(c.Posts) != 31 {
-		t.Fatalf("corpus changed: expected 31 posts, got %d; review listing assertions", len(c.Posts))
+func TestFixtureListingAndFallback(t *testing.T) {
+	c := fixtureCatalog(t)
+	if len(c.Posts) != 12 {
+		t.Fatalf("fixture changed: expected 12 published posts, got %d; review listing assertions", len(c.Posts))
 	}
 	counts := map[language]int{}
 	for _, p := range c.Posts {
@@ -137,7 +137,7 @@ func TestRealCorpusListingAndFallback(t *testing.T) {
 			t.Fatal("draft included")
 		}
 	}
-	if counts[zh] != 10 || counts[en] != 21 {
+	if counts[zh] != 4 || counts[en] != 8 {
 		t.Fatalf("unexpected language counts: %v", counts)
 	}
 	for _, lang := range []language{zh, en} {
@@ -164,20 +164,20 @@ func TestRealCorpusListingAndFallback(t *testing.T) {
 			t.Fatalf("both homes must expose English-only folders; got %d", folders)
 		}
 	}
-	items, fallback := c.listing(zh, "cs50-ai-notes", "")
-	if !fallback || len(items) != 9 {
+	items, fallback := c.listing(zh, "course-notes", "")
+	if !fallback || len(items) != 4 {
 		t.Fatalf("Chinese folder fallback: %d, %v", len(items), fallback)
 	}
 	for _, e := range items {
-		if e.Post.Lang != en || e.Post.Folder != "cs50-ai-notes" {
+		if e.Post.Lang != en || e.Post.Folder != "course-notes" {
 			t.Fatal("wrong folder fallback")
 		}
 	}
-	p, missing := c.resolve("cs50-ai-notes/0-search", zh)
+	p, missing := c.resolve("course-notes/lecture-0-search", zh)
 	if !missing || p.Lang != en {
 		t.Fatal("English-only post fallback")
 	}
-	for _, slug := range []string{"from-linear-attention-to-test-time-training", "qwen38-terminal-bench-21-reproduction"} {
+	for _, slug := range []string{"attention-notes", "server-setup"} {
 		for _, lang := range []language{zh, en} {
 			p, missing := c.resolve(slug, lang)
 			if missing || p.Lang != lang {
@@ -185,9 +185,9 @@ func TestRealCorpusListingAndFallback(t *testing.T) {
 			}
 		}
 	}
-	items, _ = c.listing(en, "missing-semester-notes", "")
+	items, _ = c.listing(en, "reference", "")
 	for _, e := range items {
-		if !strings.HasPrefix(e.Post.Slug, "missing-semester-notes/") {
+		if !strings.HasPrefix(e.Post.Slug, "reference/") {
 			t.Fatal("slug from filename instead of metadata")
 		}
 	}

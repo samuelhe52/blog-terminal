@@ -91,8 +91,35 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 	}
 }
 
-func TestEveryRealPostNeedsNoFinalGuard(t *testing.T) {
-	for _, p := range realCatalog(t).Posts {
+// corpora returns the fixture corpus plus, when BLOG_CONTENT_DIR is set, the
+// live blog content, so corpus-wide invariants can be checked against real
+// posts without committing them.
+func corpora(t *testing.T) map[string]*catalog {
+	t.Helper()
+	all := map[string]*catalog{"fixture": fixtureCatalog(t)}
+	if dir := os.Getenv("BLOG_CONTENT_DIR"); dir != "" {
+		c, err := loadCatalog(dir)
+		if err != nil {
+			t.Fatalf("BLOG_CONTENT_DIR: %v", err)
+		}
+		all["external"] = c
+	} else {
+		t.Log("BLOG_CONTENT_DIR not set; checking the fixture corpus only")
+	}
+	return all
+}
+
+func TestEveryPostNeedsNoFinalGuard(t *testing.T) {
+	for name, c := range corpora(t) {
+		for _, p := range c.Posts {
+			checkNoFinalGuard(t, name, p)
+		}
+	}
+}
+
+func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
+	t.Helper()
+	{
 		for _, width := range []int{60, 80, 120} {
 			for _, theme := range []string{"dark", "light"} {
 				out, err := renderMarkdown(preprocess(p.Body, webURL(p.Slug, p.Lang)), width, theme)
@@ -101,7 +128,7 @@ func TestEveryRealPostNeedsNoFinalGuard(t *testing.T) {
 				}
 				assertWidth(t, out, width)
 				if guarded := fitWidth(out, width); guarded != out {
-					t.Fatalf("final guard changed normal output: %s/%s at %d (%s)", p.Lang, p.Slug, width, theme)
+					t.Fatalf("final guard changed normal output: %s %s/%s at %d (%s)", corpus, p.Lang, p.Slug, width, theme)
 				}
 			}
 		}
@@ -222,12 +249,20 @@ func assertWidth(t *testing.T, output string, width int) {
 	}
 }
 
-func TestEveryRealPostWidth(t *testing.T) {
-	c := realCatalog(t)
-	for _, p := range c.Posts {
+func TestEveryPostWidth(t *testing.T) {
+	for name, c := range corpora(t) {
+		for _, p := range c.Posts {
+			checkWidths(t, name, p)
+		}
+	}
+}
+
+func checkWidths(t *testing.T, corpus string, p *post) {
+	t.Helper()
+	{
 		for _, width := range []int{40, 60, 80, 120} {
 			for _, style := range []string{"dark", "light"} {
-				t.Run(fmt.Sprintf("%s/%s/%d/%s", p.Lang, p.Slug, width, style), func(t *testing.T) {
+				t.Run(fmt.Sprintf("%s/%s/%s/%d/%s", corpus, p.Lang, p.Slug, width, style), func(t *testing.T) {
 					var cache renderCache
 					out, err := cache.render(p, width, style, colorprofile.TrueColor)
 					if err != nil {
@@ -291,17 +326,17 @@ func TestRenderCacheAndProfiles(t *testing.T) {
 // Captures include the actual reader header/footer plus the complete scrollable
 // body, so reviewers can inspect math, tables, code, and image placeholders.
 func TestReaderCaptures(t *testing.T) {
-	c := realCatalog(t)
+	c := fixtureCatalog(t)
 	for _, tt := range []struct {
 		slug  string
 		lang  language
 		name  string
 		width int
 	}{
-		{"from-linear-attention-to-test-time-training", zh, "zh-ttt-80.txt", 80},
-		{"from-linear-attention-to-test-time-training", zh, "zh-ttt-60.txt", 60},
-		{"cs50-ai-notes/1-knowledge", en, "en-cs50-knowledge-80.txt", 80},
-		{"qwen38-terminal-bench-21-reproduction", en, "en-qwen38-80.txt", 80},
+		{"attention-notes", zh, "zh-attention-80.txt", 80},
+		{"attention-notes", zh, "zh-attention-60.txt", 60},
+		{"course-notes/lecture-1-knowledge", en, "en-lecture-1-80.txt", 80},
+		{"server-setup", en, "en-server-setup-80.txt", 80},
 	} {
 		p, _ := c.resolve(tt.slug, tt.lang)
 		m := newModel(c, tt.lang, "dark", colorprofile.TrueColor, tt.width, 32)

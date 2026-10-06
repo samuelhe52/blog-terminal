@@ -4,88 +4,106 @@
 go vet ./...
 go test ./...
 go test -race ./...
-go test -short ./...   # skips only the binary CLI integration test
+go test -short ./...   # skip the test that builds and runs the binary
 ```
 
-## The post snapshot
+## Post snapshot
 
-Tests run against `testdata/posts/`, a snapshot of the Blog's posts (taken at
-Blog commit `365b1cd`), so they don't need a Blog checkout and don't break
-when new posts are published. Some tests assert facts about that snapshot
-(post counts, the seven CS50 lectures). The real-corpus count is
-intentionally asserted so new content requires a review of the listing
-checks.
+The tests read posts from `testdata/posts/`, a copy of the Blog's posts taken
+at Blog commit `365b1cd`. This keeps the tests independent of a Blog checkout
+and stops new posts from breaking them.
 
-To refresh it:
+Some tests check facts about this snapshot, such as the number of posts and
+the seven CS50 lectures. The counts are deliberate: after the snapshot is
+refreshed, a failing count is a reminder to check that the new posts appear
+correctly in the listings.
+
+To refresh the snapshot from a Blog checkout next to this repo:
 
 ```sh
 rsync -a --delete --include='*/' --include='*.md' --exclude='*' --prune-empty-dirs \
   ../Blog/src/content/posts/ testdata/posts/
-go test ./...   # update the asserted counts if they changed
+go test ./...   # update the expected counts if they changed
 UPDATE_CAPTURES=1 go test -run TestReaderCaptures
 ```
 
 ## Captures
 
-The four ANSI-stripped captures in `testdata/captures/` include the actual
-reader header, the **entire** rendered scrollable body, and footer at the
-initial 0% position. They are expanded reader transcripts, not a single
-screen or recordings of SSH cursor updates:
+`testdata/captures/` holds four reference transcripts of the reader with ANSI
+codes removed. Each one contains the header, the **entire** article body, and
+the footer as it looks at the top of the article. They are full transcripts
+of the article, not a single screenful or a recording of the SSH output.
 
-- `zh-ttt-80.txt`: Chinese TTT article, math and raw HTML images.
-- `zh-ttt-60.txt`: The same Chinese article at 60 columns.
-- `en-cs50-knowledge-80.txt`: English CS50 note, truth tables and code.
-- `en-qwen38-80.txt`: English Qwen reproduction, long code, tables, diagrams.
+- `zh-ttt-80.txt`: the Chinese TTT article at 80 columns, with math and HTML
+  images.
+- `zh-ttt-60.txt`: the same article at 60 columns.
+- `en-cs50-knowledge-80.txt`: an English CS50 note with truth tables and
+  code.
+- `en-qwen38-80.txt`: the English Qwen reproduction post, with long code,
+  tables, and diagrams.
 
-After reviewing intentional changes to the source corpus or presentation,
-regenerate them:
+When a change to the posts or to the rendering is intended, review the
+difference and then regenerate the captures:
 
 ```sh
 UPDATE_CAPTURES=1 go test -run TestReaderCaptures
 ```
 
-## Coverage
+## What the tests cover
 
-The suite tests schema errors, draft exclusion, pairs, real-corpus language
-listings and folders, fallback behavior, URLs, Markdown hazards, navigation,
-filtering, translation toggles, vim keys (counts, `gg`, half pages, help),
-background/profile messages, cache bounds, resize, and tiny windows.
+**Content and navigation.** Frontmatter validation, draft exclusion,
+translation pairing, listings and folders for the real posts, language
+fallback, and URLs. Navigation, filtering, switching translations, vim keys
+(counts, `gg`, half pages, the help screen), theme and color-profile
+messages, cache size, resizing, and very small windows.
 
-### Rendering
+**Rendering.** Every one of the 31 posts in the snapshot (10 Chinese, 21
+English) is rendered at 40, 60, 80, and 120 columns in both themes, 248
+combinations in total, and every line is checked to fit. Width is measured in
+display cells, with East Asian wide characters counting as two.
 
-Every one of the 31 published posts (10 Chinese, 21 English) renders at 40,
-60, 80, and 120 columns in both themes: 248 combinations. Width uses
-ANSI-aware Unicode display cells, counting East Asian wide characters as two.
-An additional 186 combinations (all posts at 60/80/120, both themes) assert
-that the final guard makes **no change** to the complete rendered output,
-including prose, quotes, code, and tables. Regression tests also check
-quote/code continuation prefixes, unpadded and atomic math,
-display-delimiter removal, single-line hints at 40/60/80/120, and independent
-session caches. Code/math tests check dim soft-wrap markers, unmarked source
-newlines, and preservation of spaces inside quoted arguments.
+A further 186 combinations (all posts at 60, 80, and 120 columns, both
+themes) check that the final overflow guard in `layout.go` changes
+**nothing**. This confirms that prose, quotes, code, and tables already fit
+before the guard runs.
 
-### Search
+Other rendering tests cover:
 
-Search regressions cover all seven Lecture posts from root, folder paths,
-description matching, preferred-language deduplication, folder scope, and the
-Escape/apply/reopen lifecycle. Real SSH sessions at 40 and 90 columns send
-adjacent Escape sequences followed by a new query and open the Qwen article.
+- quote and code prefixes on continuation lines
+- inline math that has no added padding and doesn't split
+- removal of display math delimiters
+- footer hints staying on one line at 40, 60, 80, and 120 columns
+- separate render caches per session
+- the dim `↪` marker on wrapped lines, and its absence on real line breaks
+- spaces inside quoted arguments surviving wrapping
 
-### SSH
+**Search.** Finding all seven CS50 lecture posts from the root, folder paths
+in results, matching on descriptions, showing each article once in the
+preferred language, limiting search to the current folder, and the
+apply / clear / reopen cycle. Real SSH sessions at 40 and 90 columns send the
+combined Escape sequences described in [architecture.md](architecture.md),
+type a new query, and open the Qwen article.
 
-`TestServeSSHCLI` builds the actual binary, runs `serve` on a free loopback
-port with a temporary persisted host key, then connects using the real
-`golang.org/x/crypto/ssh` client without authentication. It requests a PTY,
-checks the home, filters/opens a real post, toggles its translation, resizes,
-scrolls to the end, quits, verifies prohibited requests are rejected, checks
-host key permissions, and exercises SIGTERM shutdown.
+**SSH.** `TestServeSSHCLI` builds the binary and runs `serve` on a free
+local port with a temporary host key. It then connects with the
+`golang.org/x/crypto/ssh` client without authenticating and:
 
-Other SSH tests cover Chinese session language, idle/duration timeouts, a
-blinking filter's idle timeout, and session/connection caps. Rate/global-cap
-accounting has unit tests.
+1. requests a PTY and checks the home screen,
+2. filters for a post and opens it,
+3. switches its translation,
+4. resizes the window and scrolls to the end,
+5. quits,
+6. checks that forbidden requests are rejected,
+7. checks the host key's file permissions,
+8. sends SIGTERM and checks the shutdown.
 
-A real SSH test observes the OSC 11 query, injects a white-background reply,
-checks the resulting light palette, and confirms a second session without a
-reply independently stays dark and accepts input. This validates the query
-path with an injected response rather than a physical terminal's automatic
-reply.
+Other SSH tests cover choosing Chinese from the session environment, the idle
+and maximum-duration timeouts, the idle timeout while the filter's cursor is
+blinking, and the session and connection limits. The rate limit and global
+limits also have unit tests.
+
+**Theme detection.** A real SSH test waits for the OSC 11 query, sends back a
+white background, and checks that the light palette is used. A second session
+that receives no reply must stay dark and still respond to input. The reply
+is sent by the test, not by a real terminal, so detection in specific
+terminal apps still needs to be checked by hand.
