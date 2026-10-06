@@ -76,22 +76,26 @@ A manual toggle or forced theme prevents later replies from changing it.
 
 ## Keys
 
-| Context | Keys | Action |
-| --- | --- | --- |
-| Everywhere | `ctrl+c` | Quit |
-| Outside filter editing | `l`, `t` | Toggle language / light-dark theme |
-| Home / folder | `j/k`, arrows | Select |
-| Home / folder | `enter`, right arrow | Open post or folder |
-| Home / folder | `h`, left arrow | Parent folder |
-| Home / folder | `/` | Search titles/descriptions; all folders at root, current folder inside |
-| Filter editing | `enter`, `esc` | Keep filter and return to navigation / clear filter |
-| Reader | `j/k`, arrows | Scroll by line |
-| Reader | `space`, `pgdn`, `b`, `pgup` | Page down / up |
-| Both views | `g/G`, home/end | First / last position |
-| Reader | `q`, `esc` | Back to listing |
-| Home / folder | `q`, `esc` | Clear applied filter, then parent folder; `q` quits at root, `esc` stays |
+Navigation follows vim. `?` shows this list inside the app.
 
-While editing a filter, letters such as `l`, `t`, and `q` are text. Queries
+| Keys | Action |
+| --- | --- |
+| `j` / `k` (also `↓` `↑`, `ctrl+n` `ctrl+p`, `ctrl+e` `ctrl+y`) | Down / up: next item in a listing, one line in the reader |
+| `l` / `h` (also `enter` `→` / `←` `backspace`) | Open the selected post or folder / back to the listing or parent folder |
+| `gg` / `G` (also `home` / `end`) | First / last item or line |
+| `ctrl+d` / `ctrl+u` | Half page down / up |
+| `ctrl+f` / `ctrl+b` (also `space`, `pgdn` / `pgup`) | Page down / up |
+| Count prefix: `5j`, `10G`, `3gg` | Repeat a motion, or go to item/line N; `esc` cancels a pending count or `g` |
+| `/` | Filter posts; titles and descriptions, all folders at root, current folder inside |
+| `ctrl+l` | Switch language 中文 / English, staying on the same article |
+| `t` | Toggle light / dark |
+| `q` / `esc` | Back: close the article, clear an applied filter, then parent folder; `q` quits at the top level, `esc` stays |
+| `?` | Toggle the key help |
+| `ctrl+c` | Quit from anywhere |
+
+`h` and `l` never scroll sideways: long code and formulas wrap instead.
+
+While editing a filter, every printable key (`h`, `l`, `t`, `q`, `?`, digits) is text. Queries
 match titles and descriptions case-insensitively. Enter applies the query and
 closes editing; Escape clears and closes it. With an applied query, `/` reopens it without
 inserting a slash, and Escape clears it. Adjacent legacy Escape sequences
@@ -124,7 +128,7 @@ otherwise available structure. If the structure is empty, the TUI shows the
 other language with a notice. The site's folder page currently displays a
 notice/link instead of rendering that fallback structure; the reader displays
 it directly so visitors can continue browsing. English article routes can fall
-back to Chinese. `l` keeps the requested language globally and the same slug,
+back to Chinese. `ctrl+l` keeps the requested language globally and the same slug,
 even for an English-only article viewed in Chinese. The footer links to the
 available original, since the site has no Chinese route for English-only posts.
 Empty intermediate folders without direct posts follow `folders.ts` and are
@@ -206,7 +210,7 @@ UPDATE_CAPTURES=1 go test -run TestReaderCaptures
 
 The suite tests schema errors, draft exclusion, pairs, real-corpus language
 listings and folders, fallback behavior, URLs, Markdown hazards, navigation,
-filtering, translation toggles, background/profile messages, cache bounds,
+filtering, translation toggles, vim keys (counts, `gg`, half pages, help), background/profile messages, cache bounds,
 resize, and tiny windows. Every one of the 31 published posts (10 Chinese,
 21 English) renders at 40, 60, 80, and 120 columns in both themes: 248
 combinations. Width uses ANSI-aware Unicode display cells, counting East Asian

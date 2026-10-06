@@ -168,7 +168,7 @@ func TestServeSSHCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitFor(t, screen, webURL("from-linear-attention-to-test-time-training", en))
-	if _, err := io.WriteString(input, "l"); err != nil {
+	if _, err := io.WriteString(input, "\x0c"); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, screen, "从线性注意力到 Test-Time Training")

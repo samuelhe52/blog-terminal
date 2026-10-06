@@ -28,6 +28,11 @@ func press(m model, key string) (model, tea.Cmd) {
 		k.Code = ' '
 		k.Text = " "
 	default:
+		if r, ok := strings.CutPrefix(key, "ctrl+"); ok {
+			k.Code = []rune(r)[0]
+			k.Mod = tea.ModCtrl
+			break
+		}
 		k.Code = []rune(key)[0]
 		k.Text = key
 	}
@@ -55,7 +60,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 		t.Fatal("enter article")
 	}
 	slug := m.article.Slug
-	m, _ = press(m, "l")
+	m, _ = press(m, "ctrl+l")
 	if m.lang != zh || m.article.Slug != slug || !m.articleFallback || m.article.Lang != en {
 		t.Fatal("missing translation must preserve article and preference")
 	}
@@ -67,16 +72,20 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 		t.Fatal("G bottom")
 	}
 	m, _ = press(m, "g")
+	if m.viewport.AtTop() {
+		t.Fatal("a single g must wait for the second g")
+	}
+	m, _ = press(m, "g")
 	if !m.viewport.AtTop() {
-		t.Fatal("g top")
+		t.Fatal("gg top")
 	}
 	m, _ = press(m, "space")
 	if m.viewport.AtTop() {
 		t.Fatal("space scroll")
 	}
-	m, _ = press(m, "b")
+	m, _ = press(m, "ctrl+b")
 	if !m.viewport.AtTop() {
-		t.Fatal("b scroll")
+		t.Fatal("ctrl+b scroll")
 	}
 	m, _ = press(m, "q")
 	if m.article != nil || m.folder != "cs50-ai-notes" {
@@ -86,7 +95,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	if m.folder != "" {
 		t.Fatal("back out folder")
 	}
-	m, _ = press(m, "l")
+	m, _ = press(m, "ctrl+l")
 	m, _ = press(m, "/")
 	for _, r := range "Test-Time Training" {
 		m, _ = press(m, string(r))
@@ -99,7 +108,7 @@ func TestModelNavigationFilterTranslationResize(t *testing.T) {
 	if m.article == nil || m.article.Slug != "from-linear-attention-to-test-time-training" {
 		t.Fatal("open filter result")
 	}
-	m, _ = press(m, "l")
+	m, _ = press(m, "ctrl+l")
 	if m.article.Lang != zh || m.articleFallback {
 		t.Fatal("paired translation switch")
 	}
@@ -229,7 +238,7 @@ func TestModelSmallWindowsAndIndependentSessions(t *testing.T) {
 			}
 		}
 	}
-	a, _ = press(a, "l")
+	a, _ = press(a, "ctrl+l")
 	if b.lang != en || b.theme != "light" || b.article != nil || a.cache == b.cache {
 		t.Fatal("shared mutable session state")
 	}
@@ -261,7 +270,7 @@ func TestChromeHeaderAndSingleLineHints(t *testing.T) {
 				}
 				lines := strings.Split(ansi.Strip(f), "\n")
 				hints := lines[len(lines)-1]
-				if !strings.Contains(hints, "j/k") || !strings.Contains(hints, "q back") {
+				if !strings.Contains(hints, "j/k") || !strings.Contains(hints, "? help") {
 					t.Fatalf("hints wrapped/lost at %d: %q", width, hints)
 				}
 				if hintLine := m.hintLine("  0%  ", reader); strings.Contains(hintLine, "\n") {
@@ -280,7 +289,7 @@ func TestSessionCachesAreIndependent(t *testing.T) {
 	b := newModel(c, en, "dark", colorprofile.TrueColor, 80, 32)
 	a.open(p)
 	b.open(p)
-	a, _ = press(a, "l")
+	a, _ = press(a, "ctrl+l")
 	a, _ = press(a, "t")
 	a, _ = press(a, "G")
 	if b.lang != en || b.theme != "dark" || b.article != p || !b.viewport.AtTop() || len(b.cache.values) != 1 {
@@ -288,5 +297,103 @@ func TestSessionCachesAreIndependent(t *testing.T) {
 	}
 	if len(a.cache.values) <= len(b.cache.values) || a.cache == b.cache || p.Body != original {
 		t.Fatal("shared mutable cache or catalog content")
+	}
+}
+
+func TestVimKeys(t *testing.T) {
+	c := realCatalog(t)
+	m := newModel(c, en, "dark", colorprofile.TrueColor, 80, 30)
+	seq := func(keys ...string) {
+		t.Helper()
+		for _, k := range keys {
+			m, _ = press(m, k)
+		}
+	}
+	last := len(m.items) - 1
+	seq("G")
+	if m.selected != last {
+		t.Fatalf("G list: %d", m.selected)
+	}
+	seq("g", "g")
+	if m.selected != 0 {
+		t.Fatal("gg list")
+	}
+	seq("3", "j")
+	if m.selected != 3 {
+		t.Fatalf("3j: %d", m.selected)
+	}
+	seq("k", "1", "0", "G")
+	if m.selected != min(9, last) {
+		t.Fatalf("10G: %d", m.selected)
+	}
+	seq("2", "g", "g")
+	if m.selected != 1 {
+		t.Fatalf("2gg: %d", m.selected)
+	}
+	seq("0", "j")
+	if m.selected != 2 {
+		t.Fatal("a leading 0 must not start a count")
+	}
+	seq("5", "esc", "j")
+	if m.selected != 3 {
+		t.Fatal("esc must cancel a pending count without going back")
+	}
+	seq("g", "g", "ctrl+d")
+	if m.selected == 0 {
+		t.Fatal("ctrl+d list")
+	}
+	seq("ctrl+u")
+	if m.selected != 0 {
+		t.Fatal("ctrl+u list")
+	}
+
+	// Folder: l enters, h leaves; posts open with l and close with h.
+	seq("l")
+	if m.folder != "cs50-ai-notes" {
+		t.Fatalf("l into folder: %q", m.folder)
+	}
+	seq("l")
+	if m.article == nil {
+		t.Fatal("l opens post")
+	}
+	seq("ctrl+d")
+	if m.viewport.YOffset() != max(1, m.viewport.Height()/2) {
+		t.Fatalf("ctrl+d reader offset %d", m.viewport.YOffset())
+	}
+	seq("ctrl+u", "4", "ctrl+e")
+	if m.viewport.YOffset() != 4 {
+		t.Fatalf("4 ctrl+e: %d", m.viewport.YOffset())
+	}
+	seq("ctrl+y", "1", "2", "G")
+	if m.viewport.YOffset() != 11 {
+		t.Fatalf("12G reader: %d", m.viewport.YOffset())
+	}
+	seq("l")
+	if m.article == nil || m.viewport.XOffset() != 0 {
+		t.Fatal("l in reader must not scroll sideways or close")
+	}
+	seq("?")
+	if !m.help || !strings.Contains(ansi.Strip(m.View().Content), "half page down") {
+		t.Fatal("? help")
+	}
+	seq("j", "?")
+	if m.help || m.article == nil {
+		t.Fatal("? closes help and keeps the article")
+	}
+	seq("h")
+	if m.article != nil || m.folder != "cs50-ai-notes" {
+		t.Fatal("h closes post")
+	}
+	seq("h")
+	if m.folder != "" {
+		t.Fatal("h leaves folder")
+	}
+	seq("ctrl+l")
+	if m.lang != zh {
+		t.Fatal("ctrl+l language")
+	}
+	seq("l", "h", "q")
+	if _, cmd := press(m, "q"); cmd == nil {
+		t.Fatal("q quits at root")
 	}
 }

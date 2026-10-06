@@ -26,6 +26,9 @@ type model struct {
 	viewport        viewport.Model
 	filter          textinput.Model
 	filtering       bool
+	help            bool
+	count           int
+	pendingG        bool
 	theme           string
 	manualTheme     bool
 	profile         colorprofile.Profile
@@ -81,6 +84,21 @@ func (m model) Init() tea.Cmd {
 		return tea.RequestBackgroundColor
 	}
 	return nil
+}
+
+func (m *model) closeArticle() {
+	m.article = nil
+	m.err = nil
+	m.refreshListing()
+}
+
+func (m *model) parentFolder() {
+	m.folder = path.Dir(m.folder)
+	if m.folder == "." {
+		m.folder = ""
+	}
+	m.selected = 0
+	m.refreshListing()
 }
 
 func (m *model) refreshListing() {
@@ -176,8 +194,38 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshListing()
 			return m, cmd
 		}
+		if m.help {
+			switch key {
+			case "?", "q", "esc", "h", "left":
+				m.help = false
+			}
+			return m, nil
+		}
+		if key == "esc" && (m.pendingG || m.count > 0) {
+			m.pendingG, m.count = false, 0
+			return m, nil
+		}
+		// Vim count prefix (5j, 10G) and the two-key gg.
+		if t := msg.Text; len(t) == 1 && t[0] >= '0' && t[0] <= '9' && (t[0] != '0' || m.count > 0) {
+			m.count = min(m.count*10+int(t[0]-'0'), 9999)
+			m.pendingG = false
+			return m, nil
+		}
+		if key == "g" && !m.pendingG {
+			m.pendingG = true
+			return m, nil
+		}
+		if key == "g" {
+			key = "gg"
+		}
+		m.pendingG = false
+		count, explicit := max(1, m.count), m.count > 0
+		m.count = 0
 		switch key {
-		case "l":
+		case "?":
+			m.help = true
+			return m, nil
+		case "ctrl+l":
 			m.lang = m.lang.other()
 			if m.article != nil {
 				m.article, m.articleFallback = m.catalog.resolve(m.article.Slug, m.lang)
@@ -199,9 +247,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "q", "esc":
 			if m.article != nil {
-				m.article = nil
-				m.err = nil
-				m.refreshListing()
+				m.closeArticle()
 				return m, nil
 			}
 			if m.filter.Value() != "" {
@@ -210,12 +256,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if m.folder != "" {
-				m.folder = path.Dir(m.folder)
-				if m.folder == "." {
-					m.folder = ""
-				}
-				m.selected = 0
-				m.refreshListing()
+				m.parentFolder()
 				return m, nil
 			}
 			if key == "q" {
@@ -224,45 +265,70 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.article != nil {
+			v := &m.viewport
+			half := max(1, v.Height()/2)
 			switch key {
-			case "g", "home":
-				m.viewport.GotoTop()
-				return m, nil
+			case "j", "down", "ctrl+e", "ctrl+n":
+				v.ScrollDown(count)
+			case "k", "up", "ctrl+y", "ctrl+p":
+				v.ScrollUp(count)
+			case "ctrl+d":
+				v.ScrollDown(count * half)
+			case "ctrl+u":
+				v.ScrollUp(count * half)
+			case "ctrl+f", "space", "pgdown":
+				v.ScrollDown(count * v.Height())
+			case "ctrl+b", "pgup":
+				v.ScrollUp(count * v.Height())
+			case "gg", "home":
+				v.GotoTop()
+				if explicit {
+					v.SetYOffset(count - 1)
+				}
 			case "G", "end":
-				m.viewport.GotoBottom()
-				return m, nil
+				v.GotoBottom()
+				if explicit {
+					v.SetYOffset(count - 1)
+				}
+			case "h", "left", "backspace":
+				m.closeArticle()
 			}
-			var cmd tea.Cmd
-			m.viewport, cmd = m.viewport.Update(msg)
-			return m, cmd
+			return m, nil
 		}
+		last := max(0, len(m.items)-1)
+		page := m.homeCapacity()
 		switch key {
 		case "/":
 			m.filtering = true
 			return m, m.filter.Focus()
-		case "j", "down":
-			m.selected = min(m.selected+1, max(0, len(m.items)-1))
-		case "k", "up":
-			m.selected = max(0, m.selected-1)
-		case "g", "home":
+		case "j", "down", "ctrl+n", "ctrl+e":
+			m.selected = min(m.selected+count, last)
+		case "k", "up", "ctrl+p", "ctrl+y":
+			m.selected = max(0, m.selected-count)
+		case "ctrl+d":
+			m.selected = min(m.selected+count*max(1, page/2), last)
+		case "ctrl+u":
+			m.selected = max(0, m.selected-count*max(1, page/2))
+		case "ctrl+f", "space", "pgdown":
+			m.selected = min(m.selected+count*page, last)
+		case "ctrl+b", "pgup":
+			m.selected = max(0, m.selected-count*page)
+		case "gg", "home":
 			m.selected = 0
-		case "G", "end":
-			m.selected = max(0, len(m.items)-1)
-		case "space", "pgdown":
-			m.selected = min(m.selected+m.homeCapacity(), max(0, len(m.items)-1))
-		case "b", "pgup":
-			m.selected = max(0, m.selected-m.homeCapacity())
-		case "h", "left":
-			if m.folder != "" {
-				m.folder = path.Dir(m.folder)
-				if m.folder == "." {
-					m.folder = ""
-				}
-				m.selected = 0
-				m.filter.Reset()
-				m.refreshListing()
+			if explicit {
+				m.selected = min(count-1, last)
 			}
-		case "enter", "right":
+		case "G", "end":
+			m.selected = last
+			if explicit {
+				m.selected = min(count-1, last)
+			}
+		case "h", "left", "backspace":
+			if m.folder != "" {
+				m.filter.Reset()
+				m.parentFolder()
+			}
+		case "l", "enter", "right":
 			if len(m.items) > 0 {
 				e := m.items[m.selected]
 				if e.Post != nil {
@@ -335,9 +401,12 @@ func (m model) brand() string {
 }
 
 func (m model) hintLine(status string, reader bool) string {
-	keys := []string{"j/k", "↵ open", "/ filter", "q back", "l lang", "t theme", "^C quit"}
+	keys := []string{"j/k", "l open", "? help", "/ filter", "^L lang", "t theme", "q quit"}
+	if m.folder != "" {
+		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "^L lang", "t theme"}
+	}
 	if reader {
-		keys = []string{"j/k", "q back", "l lang", "^C quit", "space/b page", "g/G", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "^D/^U", "gg/G", "^L lang", "t theme"}
 	}
 	available := max(0, m.width-ansi.StringWidth(status))
 	var hints []string
@@ -406,7 +475,7 @@ func (m model) homeView(height int) string {
 		title, detail := "", ""
 		if e.Post == nil {
 			title = path.Base(e.Folder) + "/"
-			detail = fmt.Sprintf("%d posts · enter to explore", e.Count)
+			detail = fmt.Sprintf("%d posts", e.Count)
 		} else {
 			title = e.Post.Title
 			detail = e.Post.Date.Format("2006-01-02")
@@ -428,11 +497,40 @@ func (m model) homeView(height int) string {
 	return strings.TrimSuffix(strings.Join(lines, "\n"), "\n")
 }
 
+var helpRows = [][2]string{
+	{"j / k", "down / up (also ↓ ↑, ^N ^P, ^E ^Y)"},
+	{"l / h", "open / back (also ↵ → / ← ⌫)"},
+	{"gg / G", "first / last; with a count, go to line or item N"},
+	{"^D / ^U", "half page down / up"},
+	{"^F / ^B", "page down / up (also space, PgDn / PgUp)"},
+	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
+	{"/", "filter posts (↵ apply, esc clear)"},
+	{"^L", "switch language 中文 / English"},
+	{"t", "toggle light / dark"},
+	{"q / esc", "back; q quits from the top level"},
+	{"?", "close this help"},
+	{"^C", "quit"},
+}
+
+func (m model) helpView() string {
+	keyWidth := 0
+	for _, row := range helpRows {
+		keyWidth = max(keyWidth, ansi.StringWidth(row[0]))
+	}
+	lines := []string{m.accent("  Keys"), ""}
+	for _, row := range helpRows {
+		lines = append(lines, "  "+m.accent(row[0]+strings.Repeat(" ", keyWidth-ansi.StringWidth(row[0])))+"  "+m.muted(row[1]))
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (m model) View() tea.View {
 	header, footer := m.chrome()
 	available := max(1, m.height-lipgloss.Height(header)-lipgloss.Height(footer))
 	content := ""
-	if m.article != nil {
+	if m.help {
+		content = m.helpView()
+	} else if m.article != nil {
 		content = m.viewport.View()
 	} else {
 		content = m.homeView(available)
