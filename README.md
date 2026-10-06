@@ -121,11 +121,13 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `ctrl+f` / `ctrl+b`, `space` | Page down / up |
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
 | `/` | Filter by title and description; `↓`/`↑` move through matches |
+| `/` in a post | Search the post's text; `enter` keep, `esc` cancel |
+| `n` / `N` | Next / previous search match |
 | `y` | Copy the post's web link (via OSC 52, so it works over SSH) |
 | `s` | In a post, switch between the rendered post and its Markdown source |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
-| `q` / `esc` | Back; `q` quits from the top level |
+| `q` / `esc` | Back (clearing a search first); `q` quits from the top level |
 | `ctrl+c` | Quit |
 
 Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work,
@@ -171,7 +173,8 @@ whole screen. The choice lasts for the session.
 - Images are shown as captions with links.
 - Long code lines wrap with a `↪` marker instead of scrolling horizontally.
   Copy commands from the website rather than from the terminal.
-- Search matches titles and descriptions, not post content.
+- The listing filter matches titles and descriptions, not post content.
+  Inside a post, `/` searches the text on screen, one line at a time.
 
 Each post's footer links to its page on the website.
 

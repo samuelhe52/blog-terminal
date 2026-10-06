@@ -13,6 +13,7 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
 | `source.go` | Source mode: the post's Markdown with light highlighting |
 | `model.go` | The per-session Bubble Tea model |
+| `search.go` | Searching inside an open article |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
 | `session.go` | A workaround for a PTY race in Charm's SSH library |
@@ -77,9 +78,33 @@ preferred language if it exists and in the original language otherwise, and
 shows its folder path. Inside a folder, search only covers that folder and
 follows the same fallback rules as the folder listing.
 
-`q` and `esc` step back one level at a time: close the article, then clear an
-applied filter, then go to the parent folder. At the top level `q` quits and
-`esc` does nothing. `esc` also cancels a pending count or `g`.
+Inside an article, `/` opens a separate search prompt in the footer, in
+place of the article's URL. Search is incremental: each key jumps to the
+first match at or below the line that was at the top when the prompt
+opened, wrapping to the start if needed. A match is always shown two lines
+below the top of the screen. `enter` keeps the query and its highlights;
+`esc` (or `enter` on an empty query) puts back the previous search and scroll
+position. `n` and `N` go to the next and previous match, take a count, and
+show a short note when they wrap. If the current match has been scrolled out
+of view, they continue from the screen instead. The footer shows `match i/N`
+or "No matches". Matching is case-insensitive unless the query has an
+uppercase letter.
+
+Search runs on the lines the viewport shows, with ANSI codes removed, not on
+the Markdown source, so it finds what the reader sees. Positions are kept in
+display cells. A match can't span two lines, so a phrase broken by wrapping or
+by a `↪` continuation isn't found. Matches are highlighted when the screen is
+drawn, on the visible lines only: every match in the theme's secondary color
+and the current one in its accent color, or underlined and reversed for
+clients without color. The cached render is never changed. The matches are
+found again whenever the article is rerendered (resize, theme, language).
+Opening or closing an article clears the search.
+
+`q` and `esc` step back one level at a time: clear an article's search, close
+the article, then clear an applied filter, then go to the parent folder. At
+the top level `q` quits and `esc` does nothing. `esc` also cancels a pending
+count or `g`. A coalesced `Alt+/` in an article with a search starts a new
+search.
 
 ## Screen layout
 
@@ -273,8 +298,9 @@ per-client terminal settings are preserved.
 
 **Features**
 
-- No hot reload, full-text search, following links inside the reader, or
-  horizontal scrolling.
+- No hot reload, full-text search across posts, following links inside the
+  reader, or horizontal scrolling.
+- Search inside a post doesn't find text that wraps onto the next line.
 - Source mode's highlighting is approximate (see above) and does not
   highlight the code inside fences by language.
 

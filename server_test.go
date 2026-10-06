@@ -318,6 +318,49 @@ func TestSSHFilterEscapeSequence(t *testing.T) {
 	}
 }
 
+func TestSSHSearchInPost(t *testing.T) {
+	addr, _ := startTestServer(t, testConfig())
+	client := dialSSH(t, addr)
+	s, input, screen := interactive(t, client, "en_US.UTF-8")
+	waitFor(t, screen, "blog.konakona.dev")
+	if _, err := io.WriteString(input, "/two-node\r\r"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, screen, defaultSite.postURL("server-setup", en))
+	// The renderer only redraws changed cells, so wait for whole words that
+	// appear at once rather than the prompt as typed.
+	if _, err := io.WriteString(input, "/workers"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, screen, "match 1/3")
+	if _, err := io.WriteString(input, "\rn"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, screen, "n/N match")
+	if _, err := io.WriteString(input, "2n"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, screen, "Search wrapped to the top")
+	// Escape clears the search and keeps the article; q then closes it.
+	for _, step := range []struct{ keys, want string }{{"\x1b", "/ search"}, {"q", "/ filter"}} {
+		mark := len(screen.String())
+		if _, err := io.WriteString(input, step.keys); err != nil {
+			t.Fatal(err)
+		}
+		deadline := time.Now().Add(8 * time.Second)
+		for !strings.Contains(ansi.Strip(screen.String()[mark:]), step.want) {
+			if time.Now().After(deadline) {
+				t.Fatalf("after %q, SSH output missing %q", step.keys, step.want)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if _, err := io.WriteString(input, "\x03"); err != nil {
+		t.Fatal(err)
+	}
+	waitSession(t, s)
+}
+
 func TestSSHTimeoutsAndConnectionLimit(t *testing.T) {
 	for _, kind := range []string{"idle", "duration"} {
 		t.Run(kind, func(t *testing.T) {
