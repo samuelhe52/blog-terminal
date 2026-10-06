@@ -15,7 +15,6 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `kitty.go` | Kitty graphics protocol commands, placeholder cells, and terminal detection |
 | `source.go` | Source mode: the post's Markdown with light highlighting |
 | `math.go` | Typesetting math as Unicode text |
-| `math_image.go` | Drawing display math as an image (not yet used by the reader) |
 | `model.go` | The per-session Bubble Tea model |
 | `codeblocks.go` | Where code blocks are in the rendered text; copying text and code |
 | `visual.go` | Visual mode: selecting lines and drawing the selection |
@@ -185,28 +184,6 @@ that spans several rows and contains a character whose terminal width
 differs from termtex's (such as `、` or an emoji in `\text{}`) is shown as
 source, because its rows would no longer line up.
 
-### Math images
-
-`math_image.go` can also draw a display formula as an image, for terminals
-that show graphics. The reader doesn't use it yet. `renderMathImage` typesets
-the formula with [go-tex/math](https://github.com/go-tex/math), which uses
-the OpenType MATH table of an embedded STIX Two Math font and writes SVG made
-of filled glyph outlines and rules. A small rasterizer built on
-`golang.org/x/image/vector` draws that SVG. It accepts only the elements
-go-tex/math writes and reports anything else as an error. The image is
-cropped to its ink, drawn in the caller's color on a transparent background,
-and depends only on the formula, color, and size. Everything is pure Go.
-
-The font and go-tex/math's glyph cache are shared by all sessions. Both are
-read-only or guarded by a mutex, and the cache grows only with the pixel
-sizes in use, which are limited to 4–256 pixels per em.
-
-go-tex/math v0.50.0 builds a delimiter that is taller than the font's largest
-ready-made size (around a matrix of four or more rows, for example) from
-parts, and stacks the parts in the wrong places. `renderMathImage` detects
-these parts in the SVG and returns `errTallDelimiter` instead, so the caller
-can show the formula as text.
-
 ## Rendering
 
 `layout.go` parses the whole article once with Goldmark and renders it with
@@ -329,10 +306,6 @@ article sends nothing. A session keeps at most 240 images and 128 MB of
 decoded pixels in the terminal, well under kitty's 320 MB quota, so the
 terminal doesn't evict images still on screen. Beyond that, the least
 recently shown images that aren't on screen are deleted from the terminal.
-
-**Typeset images.** `newImageAsset(img image.Image, cols int)` registers any
-image, such as a rendered formula, and `(*imagePass).block` returns the block
-to put before its fallback text during preprocessing.
 
 ## Copying code and selections
 

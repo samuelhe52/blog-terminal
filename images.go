@@ -75,8 +75,7 @@ var errImageBudget = errors.New("image memory budget exhausted")
 // newImageAsset prepares img for display and registers it. cols is the width
 // in cells at which the image looks right; 0 derives it from the pixel width.
 // The asset can be placed in any article through imagePass.block, with the
-// caller's fallback text after it. Typeset math, for example, can rasterize a
-// formula to an image.Image and show it this way on supported terminals.
+// caller's fallback text after it.
 func newImageAsset(img image.Image, cols int) (*imageAsset, error) {
 	b := img.Bounds()
 	if b.Dx() < 1 || b.Dy() < 1 {
