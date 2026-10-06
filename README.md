@@ -59,6 +59,7 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `ctrl+f` / `ctrl+b`, `space` | Page down / up |
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
 | `/` | Filter by title and description; `↓`/`↑` move through matches |
+| `y` | Copy the post's web link (via OSC 52, so it works over SSH) |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
 | `q` / `esc` | Back; `q` quits from the top level |

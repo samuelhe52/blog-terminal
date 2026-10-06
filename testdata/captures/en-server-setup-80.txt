@@ -48,4 +48,4 @@ Setting Up a Two-Node Inference Server
     ↪     ng comment that will not fit in narrow terminals                    
 ────────────────────────────────────────────────────────────────────────────────
 https://blog.konakona.dev/en/posts/server-setup/
-  0%  j/k · h back · ? help · ^D/^U · gg/G · ^L lang · t theme
+  0%  j/k · h back · ? help · y link · ^D/^U · gg/G · ^L lang · t theme

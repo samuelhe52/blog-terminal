@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
@@ -37,7 +38,11 @@ type model struct {
 	profile         colorprofile.Profile
 	cache           *renderCache
 	err             error
+	copied          int // nonzero while the "link copied" note shows
 }
+
+// clearCopiedMsg hides the note, unless a later copy has replaced it.
+type clearCopiedMsg int
 
 func initialLanguage(env []string, override string) language {
 	if override != "" {
@@ -155,6 +160,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.theme == autoTheme {
 			m.styleFilter()
 			m.renderArticle(true)
+		}
+		return m, nil
+	case clearCopiedMsg:
+		if int(msg) == m.copied {
+			m.copied = 0
 		}
 		return m, nil
 	case tea.KeyPressMsg:
@@ -278,6 +288,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
+		case "y":
+			p := m.article
+			if p == nil && len(m.items) > 0 {
+				p = m.items[m.selected].Post
+			}
+			if p == nil {
+				return m, nil
+			}
+			// OSC 52 sets the clipboard of the visitor's terminal, so this
+			// works over SSH as well as locally.
+			m.copied++
+			id := m.copied
+			return m, tea.Batch(tea.SetClipboard(p.URL), tea.Tick(2*time.Second, func(time.Time) tea.Msg { return clearCopiedMsg(id) }))
 		case "q", "esc":
 			if m.article != nil {
 				m.closeArticle()
@@ -428,12 +451,15 @@ func (m model) brand() string {
 }
 
 func (m model) hintLine(status string, reader bool) string {
-	keys := []string{"j/k", "l open", "? help", "/ filter", "^L lang", "t theme", "q quit"}
+	keys := []string{"j/k", "l open", "? help", "/ filter", "y link", "^L lang", "t theme", "q quit"}
 	if m.folder != "" {
-		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "^L lang", "t theme"}
+		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+	}
+	if m.copied != 0 {
+		status += m.accent("Link copied") + "  "
 	}
 	if m.picking {
 		keys = []string{"j/k", "↵ apply", "esc cancel"}
@@ -537,6 +563,7 @@ var helpRows = [][2]string{
 	{"^F / ^B", "page down / up (also space, PgDn / PgUp)"},
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
 	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
+	{"y", "copy the web link to the post"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "choose a theme (↵ apply, esc cancel)"},
 	{"q / esc", "back; q quits from the top level"},

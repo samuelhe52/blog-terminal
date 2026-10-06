@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"strings"
 	"testing"
@@ -431,5 +432,40 @@ func TestVimKeys(t *testing.T) {
 	seq("l", "h", "q")
 	if _, cmd := press(m, "q"); cmd == nil {
 		t.Fatal("q quits at root")
+	}
+}
+
+func TestCopyLink(t *testing.T) {
+	c := fixtureCatalog(t)
+	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 24)
+	m, cmd := press(m, "y")
+	if cmd != nil || m.copied != 0 {
+		t.Fatal("y on a folder must not copy")
+	}
+	m, _ = press(m, "enter")
+	want := m.items[0].Post.URL
+	m, cmd = press(m, "y")
+	if cmd == nil || !strings.Contains(m.View().Content, "Link copied") {
+		t.Fatal("y on a post must copy and show a note")
+	}
+	var copied string
+	for _, c := range cmd().(tea.BatchMsg) {
+		if s := fmt.Sprint(c()); strings.Contains(s, "http") {
+			copied = s
+		}
+	}
+	if !strings.Contains(copied, want) {
+		t.Fatalf("copied %q, want %q", copied, want)
+	}
+	first := m.copied
+	m, _ = press(m, "enter")
+	m, _ = press(m, "y")
+	updated, _ := m.Update(clearCopiedMsg(first))
+	if m = updated.(model); m.copied == 0 {
+		t.Fatal("a stale timer must not hide a newer note")
+	}
+	updated, _ = m.Update(clearCopiedMsg(m.copied))
+	if m = updated.(model); strings.Contains(m.View().Content, "Link copied") {
+		t.Fatal("note must clear")
 	}
 }
