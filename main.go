@@ -52,7 +52,7 @@ func envOr(key, fallback string) string {
 func parseConfig(args []string) (string, config, error) {
 	cfg := defaults()
 	if len(args) == 0 {
-		return "", cfg, fmt.Errorf("usage: terminal {serve|local} [flags]")
+		return "", cfg, fmt.Errorf("usage: blog-terminal {serve|local} [flags]")
 	}
 	mode := args[0]
 	if mode != "serve" && mode != "local" {
