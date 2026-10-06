@@ -30,15 +30,16 @@ Update them when you change the fixture on purpose.
 ## Checking the live posts
 
 Two corpus-wide tests also run against real content when `BLOG_CONTENT_DIR`
-is set: every post must fit at 40, 60, 80, and 120 columns in a dark and a
+is set or a `./content` link exists (see the README): every post must fit at 40, 60, 80, and 120 columns in a dark and a
 light theme, and the final overflow guard must change nothing at 60, 80, and
 120 columns in every theme.
 
 ```sh
-BLOG_CONTENT_DIR=../Blog/src/content/posts go test ./...
+ln -s ../Blog/src/content/posts content   # once
+go test ./...
 ```
 
-Without the variable these tests check only the fixture. Run them with the
+Without either, these tests check only the fixture. Run them with the
 live posts before deploying, or after publishing posts with unusual content.
 
 ## Captures

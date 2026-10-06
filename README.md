@@ -18,9 +18,16 @@ Requires Go 1.27 and a directory of posts laid out like the Blog repo's
 Blog's frontmatter). The reader holds no content of its own; any checkout,
 export, or synced copy of that directory works.
 
+Link the Blog's posts into the repo once. The link is git-ignored, always
+reflects the Blog checkout, and is used whenever `--content` and
+`BLOG_CONTENT_DIR` are not set:
+
+```sh
+ln -s ../Blog/src/content/posts content
+```
+
 ```sh
 go build -o blog-terminal .
-export BLOG_CONTENT_DIR=../Blog/src/content/posts
 
 ./blog-terminal local    # run the reader in the current terminal
 ./blog-terminal serve    # run an SSH server on 127.0.0.1:2222
@@ -66,7 +73,7 @@ Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work.
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--content` | `$BLOG_CONTENT_DIR` | Posts directory containing `zh/` and `en/` (required) |
+| `--content` | `$BLOG_CONTENT_DIR`, then `./content` | Posts directory containing `zh/` and `en/` (required) |
 | `--site-url` | `https://blog.konakona.dev` | Public site that article links point to (`BLOG_SITE_URL`) |
 | `--title` | `konakona` | Blog name in the header (`BLOG_TITLE`) |
 | `--lang` | from session | `zh` or `en` |
@@ -109,8 +116,8 @@ go test ./...
 ```
 
 Tests run against a small made-up blog in `testdata/fixture/`, so no real
-posts are needed. To also check rendering of the live posts, set
-`BLOG_CONTENT_DIR` when running the tests. See
+posts are needed. With the `content` link in place (or `BLOG_CONTENT_DIR`
+set), they also check rendering of the live posts. See
 [docs/testing.md](docs/testing.md) for details, and
 [docs/architecture.md](docs/architecture.md) for an overview of the code.
 

@@ -26,7 +26,20 @@ type config struct {
 }
 
 func defaults() config {
-	return config{Content: os.Getenv("BLOG_CONTENT_DIR"), SiteURL: envOr("BLOG_SITE_URL", defaultSite.URL), Title: envOr("BLOG_TITLE", defaultSite.Title), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
+	return config{Content: defaultContentDir(), SiteURL: envOr("BLOG_SITE_URL", defaultSite.URL), Title: envOr("BLOG_TITLE", defaultSite.Title), Listen: "127.0.0.1:2222", HostKey: ".ssh/host_ed25519", Lang: os.Getenv("BLOG_TERMINAL_LANG"), Theme: "auto", Idle: 5 * time.Minute, Duration: time.Hour, MaxSessions: 32, MaxConnections: 64, PerIP: 4, Rate: 12}
+}
+
+// localContent is a git-ignored link to the Blog's posts for development.
+const localContent = "content"
+
+func defaultContentDir() string {
+	if dir := os.Getenv("BLOG_CONTENT_DIR"); dir != "" {
+		return dir
+	}
+	if info, err := os.Stat(localContent); err == nil && info.IsDir() {
+		return localContent
+	}
+	return ""
 }
 
 func envOr(key, fallback string) string {
@@ -46,7 +59,7 @@ func parseConfig(args []string) (string, config, error) {
 		return "", cfg, fmt.Errorf("unknown mode %q; use serve or local", mode)
 	}
 	f := flag.NewFlagSet(mode, flag.ContinueOnError)
-	f.StringVar(&cfg.Content, "content", cfg.Content, "posts directory containing zh/ and en/ (also BLOG_CONTENT_DIR)")
+	f.StringVar(&cfg.Content, "content", cfg.Content, "posts directory containing zh/ and en/ (also BLOG_CONTENT_DIR, then ./content)")
 	f.StringVar(&cfg.SiteURL, "site-url", cfg.SiteURL, "public base URL of the blog, for article links (also BLOG_SITE_URL)")
 	f.StringVar(&cfg.Title, "title", cfg.Title, "blog name shown in the header (also BLOG_TITLE)")
 	f.StringVar(&cfg.Listen, "listen", cfg.Listen, "SSH listen address")
@@ -89,7 +102,7 @@ func run(args []string) error {
 		return err
 	}
 	if cfg.Content == "" {
-		return fmt.Errorf("no content directory: pass --content or set BLOG_CONTENT_DIR (e.g. ../Blog/src/content/posts)")
+		return fmt.Errorf("no content directory: pass --content, set BLOG_CONTENT_DIR, or link ./content to the posts (e.g. ../Blog/src/content/posts)")
 	}
 	c, err := loadCatalog(cfg.Content)
 	if err != nil {

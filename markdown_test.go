@@ -92,20 +92,20 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 	}
 }
 
-// corpora returns the fixture corpus plus, when BLOG_CONTENT_DIR is set, the
-// live blog content, so corpus-wide invariants can be checked against real
+// corpora returns the fixture corpus plus, when BLOG_CONTENT_DIR is set or
+// ./content exists, the live blog content, so corpus-wide invariants can be checked against real
 // posts without committing them.
 func corpora(t *testing.T) map[string]*catalog {
 	t.Helper()
 	all := map[string]*catalog{"fixture": fixtureCatalog(t)}
-	if dir := os.Getenv("BLOG_CONTENT_DIR"); dir != "" {
+	if dir := defaultContentDir(); dir != "" {
 		c, err := loadCatalog(dir)
 		if err != nil {
-			t.Fatalf("BLOG_CONTENT_DIR: %v", err)
+			t.Fatalf("%s: %v", dir, err)
 		}
 		all["external"] = c
 	} else {
-		t.Log("BLOG_CONTENT_DIR not set; checking the fixture corpus only")
+		t.Log("no BLOG_CONTENT_DIR or ./content; checking the fixture corpus only")
 	}
 	return all
 }
