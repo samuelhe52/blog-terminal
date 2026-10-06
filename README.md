@@ -122,9 +122,12 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
 | `/` | Filter by title and description; `↓`/`↑` move through matches |
 | `y` | Copy the post's web link (via OSC 52, so it works over SSH) |
+| `v` / `V` | Select lines; motions extend the selection, `y` copies it, `esc` leaves |
+| `c` | Copy the code block at the top of the screen |
+| `[` / `]` | Previous / next code block |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
-| `q` / `esc` | Back; `q` quits from the top level |
+| `q` / `esc` | Leave the selection, or go back; `q` quits from the top level |
 | `ctrl+c` | Quit |
 
 Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work,
@@ -169,7 +172,8 @@ whole screen. The choice lasts for the session.
 - Math is shown as LaTeX source rather than typeset.
 - Images are shown as captions with links.
 - Long code lines wrap with a `↪` marker instead of scrolling horizontally.
-  Copy commands from the website rather than from the terminal.
+  Copying with `c`, or by selecting lines with `v` and `y`, gives the
+  original unwrapped lines.
 - Search matches titles and descriptions, not post content.
 
 Each post's footer links to its page on the website.

@@ -12,6 +12,8 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `markdown.go` | Rewriting Markdown into a form that renders well in a terminal |
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
 | `model.go` | The per-session Bubble Tea model |
+| `codeblocks.go` | Where code blocks are in the rendered text; copying text and code |
+| `visual.go` | Visual mode: selecting lines and drawing the selection |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
 | `session.go` | A workaround for a PTY race in Charm's SSH library |
@@ -76,9 +78,9 @@ preferred language if it exists and in the original language otherwise, and
 shows its folder path. Inside a folder, search only covers that folder and
 follows the same fallback rules as the folder listing.
 
-`q` and `esc` step back one level at a time: close the article, then clear an
-applied filter, then go to the parent folder. At the top level `q` quits and
-`esc` does nothing. `esc` also cancels a pending count or `g`.
+`q` and `esc` step back one level at a time: leave visual mode, close the
+article, then clear an applied filter, then go to the parent folder. At the
+top level `q` quits and `esc` does nothing. `esc` also cancels a pending count or `g`.
 
 ## Screen layout
 
@@ -111,7 +113,8 @@ code untouched.
   on a line is never split, including when it sits next to CJK text. The
   markers are removed after wrapping.
 - **Display math** becomes a plain-text code block with the `$$` delimiters
-  removed.
+  removed. Its info string is tagged `display-math`, so `c`, `[`, and `]`
+  skip it.
 
 ## Rendering
 
@@ -137,8 +140,9 @@ line's quote prefix or indentation.
 Code and display math wrap instead of scrolling horizontally. Wrapped
 continuation lines start with a dim `↪` in the gutter; real line breaks in
 the source have no marker. Spaces inside quoted arguments are preserved when
-wrapping. Because of the markers, wrapped commands can't be copied directly;
-the web version has the original lines.
+wrapping. Because of the markers, wrapped commands can't be copied from the
+terminal's own selection; `c` and visual mode copy the original lines (see
+below).
 
 Each theme in `theme.go` names a Chroma syntax palette (Paper uses GitHub)
 and recolors Glamour's dark or light base style. Palettes are selected by name, because Glamour otherwise shares the first custom
@@ -148,6 +152,46 @@ styling.
 Each session caches up to 16 rendered articles. The cache key is the slug,
 the language actually shown, the width, the theme, and the client's color
 profile.
+
+## Copying code and selections
+
+The render cache holds more than the ANSI text. For each code block it also
+records the rendered lines the block occupies, which source line each of
+those lines shows, and the code exactly as written.
+
+To find the blocks, `codeblocks.go` lays the article out a second time with
+each code line replaced by a short marker naming its block and line. Nothing
+else changes, so the two layouts have the same lines, and the markers show
+where each block landed. The real output is never modified. A block whose
+markers don't line up exactly, for example at widths under about 16
+columns where the markers don't fit, is left out, and copying it falls back
+to the rendered text. The final width guard is applied line by line and the
+block ranges are moved if it wraps anything. The second layout roughly
+doubles rendering time for articles with code, but only on a cache miss.
+
+`c` copies the first code block with a line on screen, or the next one
+below it, and highlights it while the note shows. `[` and `]` scroll so a
+block starts one line below the top of the screen.
+
+Reading stays scroll-only. A line cursor exists only in visual mode: `v`
+starts it on the top line of the screen (`startVisual` takes any line), and
+motions move it, scrolling to keep it visible. `y` copies the lines from the
+anchor to the cursor:
+
+- Lines of a known code block become their source lines. A wrapped line
+  is copied whole even if only part of it is selected, as in vim's
+  line-wise visual mode. Selecting exactly a block's lines gives its code
+  byte for byte.
+- Other lines lose their styling, the document margin, quote bars, and
+  trailing spaces. A `↪` line outside a known block is joined to the line
+  before it.
+
+The selection is drawn on the viewport's output, not on the cached text: a
+`▌` replaces the first margin cell, and a faint background, a blend of the
+theme's base and muted colors converted to the client's color profile, is
+reapplied after every reset in the line. Rerendering, such as after a resize
+or a theme change, leaves visual mode. A raw-source view can reuse all of
+this by supplying its own `rendered` text and block ranges.
 
 ## Theme detection
 
