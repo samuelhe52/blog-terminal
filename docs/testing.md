@@ -51,8 +51,7 @@ of the article, not a single screenful or a recording of the SSH output.
 
 - `zh-attention-80.txt`: the Chinese attention notes at 80 columns, with
   math, an HTML image, a quote, and a table.
-- `zh-attention-60.txt`: the same post at 60 columns, where long formulas
-  wrap with `↪`.
+- `zh-attention-60.txt`: the same post at 60 columns.
 - `en-lecture-1-80.txt`: an English lecture with a truth table and code.
 - `en-server-setup-80.txt`: the English setup post, with long shell commands,
   a nested list, and wide tables.
@@ -86,6 +85,15 @@ Other rendering tests cover:
 - quote and code prefixes on continuation lines
 - inline math that has no added padding and doesn't split
 - removal of display math delimiters
+- typesetting inline and display math, breaking display math to fit, and
+  falling back to the source for parse errors, panics, timeouts, oversized
+  or deeply nested input, rows that wouldn't line up, and formulas that
+  don't fit
+- which `$` signs start a formula (dollar amounts, escapes, code)
+- emphasis around inline math
+- the cell widths of math alphanumerics and combining accents
+- that every formula in the fixture (and the live posts, when available)
+  typesets, with timing; display math may fall back only in narrow windows
 - footer hints staying on one line at 40, 60, 80, and 120 columns
 - separate render caches per session
 - the dim `↪` marker on wrapped lines, and its absence on real line breaks

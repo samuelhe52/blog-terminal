@@ -166,7 +166,10 @@ whole screen. The choice lasts for the session.
 
 ## Differences from the website
 
-- Math is shown as LaTeX source rather than typeset.
+- Math is typeset as Unicode text rather than drawn. Fractions, sums, and
+  matrices are laid out over several rows, and long formulas break before
+  `=` and other relations. A formula that can't be typeset, or doesn't fit
+  the window, is shown as LaTeX source.
 - Images are shown as captions with links.
 - Long code lines wrap with a `↪` marker instead of scrolling horizontally.
   Copy commands from the website rather than from the terminal.

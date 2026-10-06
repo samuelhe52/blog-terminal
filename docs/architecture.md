@@ -11,6 +11,7 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `content.go` | Loading, validating, and pairing posts; building folders |
 | `markdown.go` | Rewriting Markdown into a form that renders well in a terminal |
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
+| `math.go` | Typesetting math as Unicode text |
 | `model.go` | The per-session Bubble Tea model |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
@@ -105,13 +106,51 @@ code untouched.
   by an absolute URL.
 - **Links.** Relative link and reference targets are resolved against the
   article's web URL, so they work outside the site.
-- **Inline math** becomes inline code, keeping its `$` delimiters and TeX
-  punctuation. Inside the formula, spaces are replaced with non-breaking
-  spaces and invisible markers are placed around it, so a formula that fits
-  on a line is never split, including when it sits next to CJK text. The
-  markers are removed after wrapping.
+- **Inline math** is typeset on one row and becomes inline code, so it
+  keeps the theme's code color and Markdown can't reinterpret it. Inside the
+  formula, spaces are replaced with non-breaking spaces and invisible markers
+  are placed around it, so a formula that fits on a line is never split,
+  including when it sits next to CJK text. The markers are removed after
+  wrapping, and left out next to `*` or `_` so emphasis around a formula
+  still works.
 - **Display math** becomes a plain-text code block with the `$$` delimiters
-  removed.
+  removed, tagged so that `layout.go` can typeset it (see below).
+
+An inline formula follows Pandoc's rules: the opening `$` must not be
+followed by a space, the closing `$` must not follow a space or precede a
+digit, and both must be on the same line. So `$5 and $10` and `100$` stay
+prose. `\$` is a literal dollar sign.
+
+## Math
+
+`math.go` typesets math with [termtex](https://github.com/doug/termtex),
+which lays TeX out on a grid of terminal cells using Unicode symbols, math
+alphanumerics (𝐱, ℝ, ℒ), sub- and superscripts, and box-drawing characters.
+
+Inline math uses TeX's text style: fractions become `a/b` and limits move to
+the side, so most formulas fit on one row. A formula that would still need
+more than one row is shown as source.
+
+Display math is typeset while `wrapCode` lays out code blocks, because only
+then is the width known: the window minus the document margin, quote prefixes,
+the code margin, and any list indent. termtex breaks a formula that is too
+wide before relations, then before binary operators. The rows are inserted
+as preformatted code, so Glamour doesn't reflow them. If the formula still
+doesn't fit, it is shown as source and wrapped with `↪` like other code.
+
+Every formula falls back to its source on its own, without affecting the
+rest of the post. That happens when termtex reports a parse error, panics, or
+takes more than two seconds, and for input over 1 KB or nested more than 32
+groups deep, which could only be pathological. A formula that times out
+keeps running in the background, since Go can't stop it.
+
+termtex assumes every character is one cell wide except CJK ideographs and
+fullwidth forms. Lines are measured with `ansi.StringWidth`, which agrees for
+math alphanumerics and for letters with combining accents (𝐰̃, λ̂). termtex
+leaves a blank cell after each wide character, which is removed. A formula
+that spans several rows and contains a character whose terminal width
+differs from termtex's (such as `、` or an emoji in `\text{}`) is shown as
+source, because its rows would no longer line up.
 
 ## Rendering
 
@@ -222,7 +261,13 @@ per-client terminal settings are preserved.
 
 **Rendering**
 
-- Math is shown as LaTeX source, not typeset.
+- Math is typeset as text, so it is coarser than on the website: scripts
+  without a Unicode form are written as `x^{N×d}`, and tall delimiters are
+  built from pieces. Display math that can't be broken to fit a narrow
+  window, and the few constructs termtex doesn't support, are shown as LaTeX
+  source.
+- Display math inside a block quote or list item ends the quote or item,
+  as it did before typesetting.
 - Images are shown as captions and links, not drawn in the terminal. Other
   raw HTML is left to Glamour.
 - Local image paths such as NITP's `imgs/nitp-overview.png` are turned into
@@ -230,9 +275,8 @@ per-client terminal settings are preserved.
   under hashed asset URLs instead, so the links may not work. The reader
   doesn't inspect the built site, and image links are not checked.
 - Preprocessing is written for this blog's posts and common Markdown, not
-  the full Markdown and HTML grammar. Code fences inside nested lists,
-  unusual image attributes, and two dollar amounts on one line (which look
-  like math) may need extra handling.
+  the full Markdown and HTML grammar. Code fences inside nested lists and
+  unusual image attributes may need extra handling.
 - Wide tables can wrap awkwardly, and Glamour may shorten table headings.
 - Block quotes inside lists still use Glamour's own layout and may lose
   their prefixes when wrapped. Top-level quotes and quotes nested in quotes
