@@ -20,6 +20,11 @@ var referenceLink = regexp.MustCompile(`(?m)^( {0,3}\[[^\]\n]+\]:\s*)(<[^>]+>|\S
 // to CJK punctuation, without adding a visible space around inline formulas.
 const mathBreak = "\u2028"
 
+// The wrapper always breaks after "-"; inline math uses a non-breaking hyphen
+// while wrapping (like its non-breaking spaces) so formulas such as
+// $z_{t-1}$ stay whole. Both are restored after wrapping.
+const nbHyphen = "\u2011"
+
 func absoluteLink(raw, base string) string {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -73,7 +78,10 @@ func preprocess(body, base string) string {
 	var out strings.Builder
 	var fence byte
 	fenceLen := 0
+	var prev rune // last prose rune written, 0 after any non-prose output
 	for i := 0; i < len(body); {
+		last := prev
+		prev = 0
 		lineStart := i == 0 || body[i-1] == '\n'
 		if lineStart {
 			end := strings.IndexByte(body[i:], '\n')
@@ -169,7 +177,7 @@ func preprocess(body, base string) string {
 				} else {
 					// Keep fitting formulas together during prose layout. The
 					// renderer restores ordinary spaces after line breaks are set.
-					out.WriteString(mathBreak + codeSpan(strings.ReplaceAll(math, " ", "\u00a0")))
+					out.WriteString(mathBreak + codeSpan(strings.NewReplacer(" ", "\u00a0", "-", nbHyphen).Replace(math)))
 					next, _ := utf8.DecodeRuneInString(body[i+n+end+n:])
 					if !strings.ContainsRune("，。、；：！？）】》」』”’.,;:!?)]}", next) {
 						out.WriteString(mathBreak)
@@ -251,10 +259,44 @@ func preprocess(body, base string) string {
 				continue
 			}
 		}
-		out.WriteByte(body[i])
-		i++
+		r, size := utf8.DecodeRuneInString(body[i:])
+		if cjkBreakable(last, r) {
+			out.WriteString(mathBreak)
+		}
+		out.WriteString(body[i : i+size])
+		i += size
+		prev = r
 	}
 	return out.String()
+}
+
+// Chinese has no spaces between words, but Glamour's wrapper only breaks at
+// whitespace, so a CJK run up to the next space moves to a new line as one
+// unbreakable word. Mark the break opportunities between CJK characters with
+// the same zero-cell space used around math (removed after wrapping), and
+// follow the usual line-breaking rules: no line starts with closing
+// punctuation or ends with opening punctuation.
+func cjkBreakable(a, b rune) bool {
+	if a == 0 || !(isCJK(a) || isCJK(b)) || !(isCJK(a) || isWordRune(a)) || !(isCJK(b) || isWordRune(b)) {
+		return false
+	}
+	return !strings.ContainsRune(cjkNoLineStart, b) && !strings.ContainsRune(cjkNoLineEnd, a)
+}
+
+const (
+	cjkNoLineStart = "，。、；：！？）」』》〉】〕｝］…—～·％”’,.;:!?)]}%"
+	cjkNoLineEnd   = "（「『《〈【〔｛［“‘([{"
+)
+
+func isCJK(r rune) bool {
+	return unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana, unicode.Hangul) ||
+		(r >= 0x3000 && r <= 0x303f) || // CJK symbols and punctuation
+		(r >= 0xff00 && r <= 0xffef) || // fullwidth forms
+		r == '…' || r == '—' || r == '“' || r == '”' || r == '‘' || r == '’'
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }
 
 type renderKey struct {

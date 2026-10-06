@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
@@ -356,5 +357,64 @@ func TestReaderCaptures(t *testing.T) {
 		if string(data) != capture {
 			t.Fatalf("%s differs; review and regenerate with UPDATE_CAPTURES=1", file)
 		}
+	}
+}
+
+func TestCJKLineBreaking(t *testing.T) {
+	strip := func(out string) []string {
+		var lines []string
+		for _, line := range strings.Split(ansi.Strip(out), "\n") {
+			if line = strings.TrimLeft(strings.TrimSpace(line), "│ "); line != "" {
+				lines = append(lines, line)
+			}
+		}
+		return lines
+	}
+	para := "本文先回顾标准的 softmax 注意力，再说明为什么把相似度函数换成可分解的核函数之后，整个计算可以按照序列长度线性增长。"
+	for _, width := range []int{30, 40, 60} {
+		out, err := renderMarkdown(preprocess(para, defaultSite.URL), width, "dark")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Lines fill up instead of the Chinese run after "softmax" moving to
+		// a new line as one unbreakable word. The slack allows for a space
+		// plus a character kept together with its punctuation.
+		lines := strip(out)
+		for _, line := range lines[:len(lines)-1] {
+			if w := ansi.StringWidth(line); w < width-4-5 {
+				t.Fatalf("short line at %d (%d cells): %q", width, w, lines)
+			}
+		}
+	}
+
+	// No line may start with closing punctuation or end with opening
+	// punctuation, across every fixture post and width.
+	for _, p := range fixtureCatalog(t).Posts {
+		for _, width := range []int{30, 40, 60, 80} {
+			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, "dark")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, line := range strip(out) {
+				first, _ := utf8.DecodeRuneInString(line)
+				last, _ := utf8.DecodeLastRuneInString(line)
+				if strings.ContainsRune("，。、；：！？）」』》", first) || strings.ContainsRune("（「『《", last) {
+					t.Fatalf("%s at %d: bad break around punctuation: %q", p.Slug, width, line)
+				}
+			}
+		}
+	}
+
+	// Inline math stays whole even with hyphens; code is never altered.
+	out, err := renderMarkdown(preprocess("在每一步中维护状态 $S_t = S_{t-1} + \\phi(k_t)$ 与归一化项 $z_t = z_{t-1}$，"+strings.Repeat("成本与长度无关，", 6), defaultSite.URL), 40, "dark")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain := ansi.Strip(out); !strings.Contains(plain, "S_{t-1}") || !strings.Contains(plain, "z_{t-1}") || strings.ContainsAny(plain, mathBreak+nbHyphen+" ") {
+		t.Fatalf("inline math split or markers leaked:\n%s", plain)
+	}
+	code := "`中文代码`\n\n```text\n中文代码块，不应被修改\n```\n"
+	if got := preprocess(code, defaultSite.URL); got != code {
+		t.Fatalf("code changed: %q", got)
 	}
 }

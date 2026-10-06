@@ -47,7 +47,7 @@ func renderMarkdown(markdown string, width int, theme string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	result = strings.NewReplacer("\u00a0", " ", mathBreak, "").Replace(result)
+	result = strings.NewReplacer("\u00a0", " ", nbHyphen, "-", mathBreak, "").Replace(result)
 	lines := strings.Split(result, "\n")
 	for i, line := range lines {
 		if strings.TrimSpace(ansi.Strip(line)) != "" {
