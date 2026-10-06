@@ -144,7 +144,7 @@ func preprocess(body, base string) string {
 			}
 		}
 		if body[i] == '$' {
-			if math, size := mathAt(body[i:]); size > 0 {
+			if math, size := mathAt(body[i:], last); size > 0 {
 				out.WriteString(math)
 				i += size
 				continue

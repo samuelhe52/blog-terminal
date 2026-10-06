@@ -35,11 +35,11 @@ const (
 )
 
 // mathAt reports whether s starts with a formula, and if so returns its
-// Markdown replacement and the number of bytes it spans. Inline math must
-// end on the same line. Like Pandoc, an inline formula must not start
-// or end with a space and its closing "$" must not be followed by a digit,
-// so "$5 and $10" stays prose.
-func mathAt(s string) (string, int) {
+// Markdown replacement and the number of bytes it spans; prev is the prose
+// rune before it. Inline math must end on the same line. Like Pandoc, an
+// inline formula must not start or end with a space and its closing "$"
+// must not be followed by a digit, so "$5 and $10" stays prose.
+func mathAt(s string, prev rune) (string, int) {
 	n := 1
 	if strings.HasPrefix(s, "$$") {
 		n = 2
@@ -84,9 +84,14 @@ func mathAt(s string) (string, int) {
 		shown = out
 	}
 	// Keep fitting formulas together during prose layout. The renderer
-	// restores ordinary spaces and hyphens after line breaks are set.
-	md := mathBreak + codeSpan(strings.NewReplacer(" ", "\u00a0", "-", nbHyphen).Replace(shown))
-	if !strings.ContainsRune("，。、；：！？）】》」』”’.,;:!?)]}", next) {
+	// restores ordinary spaces and hyphens after line breaks are set. The
+	// zero-cell breaks around the formula count as whitespace in Markdown, so
+	// leave them out next to emphasis, as in "**$x$ is**".
+	md := codeSpan(strings.NewReplacer(" ", "\u00a0", "-", nbHyphen).Replace(shown))
+	if !strings.ContainsRune("*_~", prev) {
+		md = mathBreak + md
+	}
+	if !strings.ContainsRune("，。、；：！？）】》」』”’.,;:!?)]}*_~", next) {
 		md += mathBreak
 	}
 	return md, size

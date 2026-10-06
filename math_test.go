@@ -40,6 +40,16 @@ func TestInlineMathDelimiters(t *testing.T) {
 	}
 }
 
+func TestInlineMathInsideEmphasis(t *testing.T) {
+	out, err := renderMarkdown(preprocess(`**$\Sigma$ 是对称矩阵。** 因为 *$x$* 与 _$y$_ 和 **粗体 $z$**。`, defaultSite.URL), 80, "rose-pine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain := ansi.Strip(out); strings.ContainsAny(plain, "*_") || !strings.Contains(plain, "Σ 是对称矩阵。 因为 x 与 y 和 粗体 z。") {
+		t.Fatalf("emphasis around math not applied: %q", plain)
+	}
+}
+
 // inlineCode returns the inline code spans Goldmark finds, with the layout
 // markers that preprocess adds turned back into spaces and hyphens.
 func inlineCode(t *testing.T, markdown string) []string {
