@@ -98,6 +98,16 @@ apply / clear / reopen cycle. Real SSH sessions at 40 and 90 columns send the
 combined Escape sequences described in [architecture.md](architecture.md),
 type a new query, and open the setup article.
 
+**Search inside a post.** Smartcase matching, match positions in display
+cells for CJK text, and highlighting that keeps line widths and the colors
+after a match. In the reader: incremental jumps, `enter` and `esc` (restoring
+the scroll position), `n`/`N` with counts and wrapping, continuing from the
+screen after scrolling away, matches found again after a resize, widths at
+40, 60, 80, and 120 columns, no colors for clients without color, the
+`esc`/`q` order, a coalesced `Alt+/`, and clearing when another article
+opens. An SSH session opens a post, searches it, steps with `n`, and checks
+that `esc` clears the search before `q` closes the article.
+
 **SSH.** `TestServeSSHCLI` builds the binary and runs `serve` on a free
 local port with a temporary host key. It then connects with the
 `golang.org/x/crypto/ssh` client without authenticating and:
