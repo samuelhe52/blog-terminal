@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for blog-terminal content deploys
+
+[Path]
+PathChanged=/srv/blog-terminal/deployed
+Unit=blog-terminal-reload.service
+
+[Install]
+WantedBy=multi-user.target

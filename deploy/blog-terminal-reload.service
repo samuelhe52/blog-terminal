@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart blog-terminal after a content deploy
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl try-restart blog-terminal.service
