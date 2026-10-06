@@ -122,6 +122,7 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
 | `/` | Filter by title and description; `↓`/`↑` move through matches |
 | `y` | Copy the post's web link (via OSC 52, so it works over SSH) |
+| `s` | In a post, switch between the rendered post and its Markdown source |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Choose a theme; `j`/`k` preview, `enter` apply, `esc` cancel |
 | `q` / `esc` | Back; `q` quits from the top level |
