@@ -72,4 +72,4 @@ konakona · blog.konakona.dev                            中文
   Transformer”的原因。                                    
 ────────────────────────────────────────────────────────────
 https://blog.konakona.dev/zh/posts/attention-notes/
-  0%  j/k · h back · ? help · y link · ^D/^U · gg/G
+  0%  j/k · h back · ? help · v visual · [ ] code · y link

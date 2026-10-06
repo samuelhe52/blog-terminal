@@ -21,6 +21,12 @@ import (
 // prefixes. Use its public ANSI renderer on the parsed tree so references and
 // inline formatting still resolve across the entire article.
 func renderMarkdown(markdown string, width int, key string) (string, error) {
+	return layoutMarkdown(markdown, width, key, nil)
+}
+
+// layoutMarkdown renders like renderMarkdown and, given an index, records each
+// code block it lays out (see codeblocks.go).
+func layoutMarkdown(markdown string, width int, key string, index *codeIndex) (string, error) {
 	t := lookupTheme(key)
 	if t.Key != key {
 		return "", fmt.Errorf("unknown theme %q", key)
@@ -33,6 +39,9 @@ func renderMarkdown(markdown string, width int, key string) (string, error) {
 	margin := int(*style.Document.Margin)
 	if width <= 2*margin {
 		margin = 0
+	}
+	if index != nil {
+		index.margin = margin
 	}
 	zero := uint(0)
 	style.Document.Margin = &zero
@@ -56,7 +65,7 @@ func renderMarkdown(markdown string, width int, key string) (string, error) {
 	source := []byte(markdown)
 	parser := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.DefinitionList))
 	doc := parser.Parser().Parse(text.NewReader(source))
-	result, err := renderBlocks(doc, source, max(1, width-2*margin), style)
+	result, err := renderBlocks(doc, source, max(1, width-2*margin), style, index)
 	if err != nil {
 		return "", err
 	}
@@ -70,14 +79,14 @@ func renderMarkdown(markdown string, width int, key string) (string, error) {
 	return strings.Join(lines, "\n"), nil
 }
 
-func renderBlocks(parent ast.Node, source []byte, width int, style glamour.StyleConfig) (string, error) {
+func renderBlocks(parent ast.Node, source []byte, width int, style glamour.StyleConfig, index *codeIndex) (string, error) {
 	var parts []string
 	group := ast.NewDocument()
 	flush := func() error {
 		if group.FirstChild() == nil {
 			return nil
 		}
-		wrapped := wrapCode(group, source, width, style)
+		wrapped := wrapCode(group, source, width, style, index)
 		wrapTables := true
 		r := renderer.NewRenderer(renderer.WithNodeRenderers(util.Prioritized(glamour.NewRenderer(glamour.Options{WordWrap: width, Styles: style, TableWrap: &wrapTables}), 1000)))
 		var out bytes.Buffer
@@ -94,7 +103,7 @@ func renderBlocks(parent ast.Node, source []byte, width int, style glamour.Style
 			if err := flush(); err != nil {
 				return "", err
 			}
-			quote, err := renderBlocks(node, source, max(1, width-2), style)
+			quote, err := renderBlocks(node, source, max(1, width-2), style, index)
 			if err != nil {
 				return "", err
 			}
@@ -117,7 +126,7 @@ func renderBlocks(parent ast.Node, source []byte, width int, style glamour.Style
 // Wrap source code before syntax highlighting, reserving the code margin and
 // any nested list indent. Glamour then applies the same indentation to each
 // continuation, instead of its document wrapper breaking a highlighted line.
-func wrapCode(doc ast.Node, original []byte, width int, style glamour.StyleConfig) []byte {
+func wrapCode(doc ast.Node, original []byte, width int, style glamour.StyleConfig, index *codeIndex) []byte {
 	source := original
 	_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering || (node.Kind() != ast.KindCodeBlock && node.Kind() != ast.KindFencedCodeBlock) {
@@ -142,6 +151,9 @@ func wrapCode(doc ast.Node, original []byte, width int, style glamour.StyleConfi
 			wrappedLines = append(wrappedLines, wrapCodeLine(line, max(1, width-indent)))
 		}
 		wrapped := strings.Join(wrappedLines, "\n") + "\n"
+		if index != nil {
+			wrapped = index.add(node, original, code.String(), wrappedLines, wrapped)
+		}
 		start := len(source)
 		source = append(source, wrapped...)
 		segments := text.NewSegments()

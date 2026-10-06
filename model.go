@@ -40,6 +40,10 @@ type model struct {
 	err             error
 	note            string // a short status such as "Link copied"
 	noteID          int    // nonzero while note shows
+	doc             rendered
+	visual          bool // line-wise selection from anchor to cursor
+	anchor, cursor  int
+	copied          codeFlash
 }
 
 // clearNoteMsg hides the note, unless a later note has replaced it.
@@ -127,13 +131,14 @@ func (m *model) renderArticle(preserve bool) {
 		return
 	}
 	percent := m.viewport.ScrollPercent()
-	content, err := m.cache.render(m.article, m.width, m.palette().Key, m.profile)
+	doc, err := m.cache.renderDoc(m.article, m.width, m.palette().Key, m.profile)
 	m.err = err
 	if err != nil {
-		content = "Unable to render this article: " + err.Error()
+		doc = rendered{text: "Unable to render this article: " + err.Error()}
 	}
+	m.doc, m.visual, m.copied = doc, false, codeFlash{}
 	m.viewport.SetWidth(m.width)
-	m.viewport.SetContent(content)
+	m.viewport.SetContent(doc.text)
 	m.sizeViewport()
 	if preserve {
 		m.viewport.SetYOffset(int(percent * float64(max(0, m.viewport.TotalLineCount()-m.viewport.Height()))))
@@ -266,6 +271,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pendingG = false
 		count, explicit := max(1, m.count), m.count > 0
 		m.count = 0
+		if m.visual {
+			if cmd, handled := m.visualKey(key, count, explicit); handled {
+				return m, cmd
+			}
+		}
 		switch key {
 		case "?":
 			m.help = true
@@ -345,6 +355,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "h", "left", "backspace":
 				m.closeArticle()
+			case "v", "V":
+				m.startVisual(v.YOffset())
+			case "c":
+				return m, m.copyCode()
+			case "[":
+				m.jumpCode(-1, count)
+			case "]":
+				m.jumpCode(1, count)
 			}
 			return m, nil
 		}
@@ -468,7 +486,10 @@ func (m model) hintLine(status string, reader bool) string {
 		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "v visual", "[ ] code", "c copy code", "y link", "^D/^U", "gg/G", "^L lang", "t theme"}
+	}
+	if m.visual {
+		keys = []string{"j/k extend", "y yank", "esc leave"}
 	}
 	if m.noteID != 0 {
 		status += m.accent(m.note) + "  "
@@ -496,7 +517,7 @@ func (m model) chrome() (string, string) {
 			header += "\n" + m.accent(m.notice())
 		}
 		header += "\n" + rule
-		footer := rule + "\n" + m.muted(m.article.URL) + "\n" + m.hintLine(fmt.Sprintf("%3.0f%%  ", m.viewport.ScrollPercent()*100), true)
+		footer := rule + "\n" + m.muted(m.article.URL) + "\n" + m.hintLine(m.readerStatus(), true)
 		return fitWidth(header, m.width), fitWidth(footer, m.width)
 	}
 	location := "/"
@@ -576,6 +597,9 @@ var helpRows = [][2]string{
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
 	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
 	{"y", "copy the web link to the post"},
+	{"v / V", "select lines (j/k extend, y yank, esc leave)"},
+	{"c", "copy the code block at the top of the screen"},
+	{"[ / ]", "previous / next code block"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "choose a theme (↵ apply, esc cancel)"},
 	{"q / esc", "back; q quits from the top level"},
@@ -639,7 +663,7 @@ func (m model) View() tea.View {
 	} else if m.help {
 		content = m.helpView()
 	} else if m.article != nil {
-		content = m.viewport.View()
+		content = m.decorate(m.viewport.View())
 	} else {
 		content = m.homeView(available)
 	}

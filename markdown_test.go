@@ -23,7 +23,7 @@ func TestPreprocess(t *testing.T) {
 		{"Markdown destinations", `[root](/lab/a/) ![plot](../plot.png) [nested](./a_(b).md "title")`, []string{defaultSite.URL + "/lab/a/", defaultSite.URL + "/en/posts/folder/plot.png", defaultSite.URL + `/en/posts/folder/article/a_(b).md "title"`}},
 		{"reference links", "[x]: /images/x.png \"title\"\n![plot][x]", []string{defaultSite.URL + "/images/x.png"}},
 		{"inline math", `Text $a_i * b_j + \alpha$ end.`, []string{codeSpan(strings.ReplaceAll(`$a_i * b_j + \alpha$`, " ", "\u00a0"))}},
-		{"display math", "Before\n$$\na_i * b_j + \\alpha\n\\frac{1}{2}\n$$\nAfter", []string{"```text\na_i * b_j + \\alpha\n\\frac{1}{2}\n```"}},
+		{"display math", "Before\n$$\na_i * b_j + \\alpha\n\\frac{1}{2}\n$$\nAfter", []string{"```text " + displayMath + "\na_i * b_j + \\alpha\n\\frac{1}{2}\n```"}},
 		{"code span", "`$HOME * a_i \\x` and ``$x`y$``", []string{"`$HOME * a_i \\x`", "``$x`y$``"}},
 		{"fenced code", "```sh\necho '$HOME' # $a_i$\n[link](/dont-touch)\n```\n~~~python\ns = '$$'\n~~~", []string{"```sh\necho '$HOME' # $a_i$\n[link](/dont-touch)\n```", "~~~python\ns = '$$'\n~~~"}},
 		{"indented code", "    echo '$HOME $x$'\n", []string{"    echo '$HOME $x$'\n"}},
