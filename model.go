@@ -463,6 +463,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// noteDuration is how long a footer note stays; tests shorten it.
+var noteDuration = 2 * time.Second
+
 // copy puts text on the visitor's clipboard and shows note for two seconds.
 // OSC 52 sets the clipboard of the visitor's terminal, so this works over SSH
 // as well as locally.
@@ -475,7 +478,7 @@ func (m *model) flash(note string) tea.Cmd {
 	m.noteID++
 	m.note = note
 	id := m.noteID
-	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return clearNoteMsg(id) })
+	return tea.Tick(noteDuration, func(time.Time) tea.Msg { return clearNoteMsg(id) })
 }
 
 func (m *model) styleFilter() {

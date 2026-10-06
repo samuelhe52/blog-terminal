@@ -98,7 +98,11 @@ func TestInlineMathSpacingAndAtomicWrapping(t *testing.T) {
 func corpora(t *testing.T) map[string]*catalog {
 	t.Helper()
 	all := map[string]*catalog{"fixture": fixtureCatalog(t)}
-	if dir := defaultContentDir(); dir != "" {
+	if raceEnabled {
+		// Rendering a post is single-threaded, and the race detector makes
+		// the live posts take minutes; plain go test checks them.
+		t.Log("race detector on; checking the fixture corpus only")
+	} else if dir := defaultContentDir(); dir != "" {
 		c, err := loadCatalog(dir)
 		if err != nil {
 			t.Fatalf("%s: %v", dir, err)
@@ -108,31 +112,6 @@ func corpora(t *testing.T) map[string]*catalog {
 		t.Log("no BLOG_CONTENT_DIR or ./content; checking the fixture corpus only")
 	}
 	return all
-}
-
-func TestEveryPostNeedsNoFinalGuard(t *testing.T) {
-	for name, c := range corpora(t) {
-		for _, p := range c.Posts {
-			checkNoFinalGuard(t, name, p)
-		}
-	}
-}
-
-func checkNoFinalGuard(t *testing.T, corpus string, p *post) {
-	t.Helper()
-	for _, width := range []int{60, 80, 120} {
-		for _, th := range themes {
-			theme := th.Key
-			out, err := renderMarkdown(preprocess(p.Body, p.URL), width, theme)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assertWidth(t, out, width)
-			if guarded := fitWidth(out, width); guarded != out {
-				t.Fatalf("final guard changed normal output: %s %s/%s at %d (%s)", corpus, p.Lang, p.Slug, width, theme)
-			}
-		}
-	}
 }
 
 func TestQuoteAndCodeContinuations(t *testing.T) {
@@ -249,30 +228,44 @@ func assertWidth(t *testing.T, output string, width int) {
 	}
 }
 
+// TestEveryPostWidth renders every post at 40, 60, 80, and 120 columns in
+// every theme. From 60 columns up, the layout must fit before the final guard
+// runs, so the guard changes nothing. At 40 the guard may wrap, and the cached
+// output, guard included, must fit.
 func TestEveryPostWidth(t *testing.T) {
 	for name, c := range corpora(t) {
 		for _, p := range c.Posts {
-			checkWidths(t, name, p)
+			t.Run(fmt.Sprintf("%s/%s/%s", name, p.Lang, p.Slug), func(t *testing.T) {
+				t.Parallel()
+				checkWidths(t, p)
+			})
 		}
 	}
 }
 
-func checkWidths(t *testing.T, corpus string, p *post) {
+func checkWidths(t *testing.T, p *post) {
 	t.Helper()
-	for _, width := range []int{40, 60, 80, 120} {
-		for _, style := range []string{"rose-pine", "rose-pine-dawn"} {
-			t.Run(fmt.Sprintf("%s/%s/%s/%d/%s", corpus, p.Lang, p.Slug, width, style), func(t *testing.T) {
-				var cache renderCache
-				out, err := cache.render(p, width, style, colorprofile.TrueColor)
-				if err != nil {
-					t.Fatal(err)
-				}
-				assertWidth(t, out, width)
-				if strings.TrimSpace(ansi.Strip(out)) == "" {
-					t.Fatal("empty rendered post")
-				}
-			})
+	md := preprocess(p.Body, p.URL)
+	for _, th := range themes {
+		for _, width := range []int{60, 80, 120} {
+			out, err := renderMarkdown(md, width, th.Key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertWidth(t, out, width)
+			if fitWidth(out, width) != out {
+				t.Fatalf("final guard changed normal output at %d (%s)", width, th.Key)
+			}
+			if strings.TrimSpace(ansi.Strip(out)) == "" {
+				t.Fatal("empty rendered post")
+			}
 		}
+		var cache renderCache
+		out, err := cache.render(p, 40, th.Key, colorprofile.TrueColor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertWidth(t, out, 40)
 	}
 }
 

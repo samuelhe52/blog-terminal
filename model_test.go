@@ -5,11 +5,20 @@ import (
 	"image/color"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
 	"github.com/charmbracelet/x/ansi"
 )
+
+// shortNotes makes a note's clear timer fire at once, for tests that run it.
+// SSH tests still need the full duration to read notes from the screen.
+func shortNotes(t *testing.T) {
+	saved := noteDuration
+	noteDuration = time.Millisecond
+	t.Cleanup(func() { noteDuration = saved })
+}
 
 func press(m model, key string) (model, tea.Cmd) {
 	k := tea.KeyPressMsg{}
@@ -436,6 +445,7 @@ func TestVimKeys(t *testing.T) {
 }
 
 func TestCopyLink(t *testing.T) {
+	shortNotes(t)
 	c := fixtureCatalog(t)
 	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 24)
 	m, cmd := press(m, "y")

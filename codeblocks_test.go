@@ -100,35 +100,39 @@ func TestCodeBlocksLocated(t *testing.T) {
 	squash := strings.NewReplacer(" ", "", "\t", "", "\n", "", "↪", "", "│", "")
 	for name, c := range corpora(t) {
 		for _, p := range c.Posts {
-			for _, width := range []int{40, 80} {
-				index := &codeIndex{}
-				md := preprocess(p.Body, p.URL)
-				if _, err := layoutMarkdown(md, width, "rose-pine", index); err != nil {
-					t.Fatal(err)
-				}
-				doc, err := renderDocument(md, width, "rose-pine")
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(doc.blocks) != len(index.blocks) {
-					t.Fatalf("%s %s/%s at %d: located %d of %d blocks", name, p.Lang, p.Slug, width, len(doc.blocks), len(index.blocks))
-				}
-				lines := strings.Split(ansi.Strip(doc.text), "\n")
-				for _, b := range doc.blocks {
-					if b.math {
-						continue // typeset, so its rows don't show the source
+			t.Run(fmt.Sprintf("%s/%s/%s", name, p.Lang, p.Slug), func(t *testing.T) {
+				t.Parallel()
+				for _, width := range []int{40, 80} {
+					index := &codeIndex{}
+					md := preprocess(p.Body, p.URL)
+					if _, err := layoutMarkdown(md, width, "rose-pine", index); err != nil {
+						t.Fatal(err)
 					}
-					shown := strings.Join(lines[b.start:b.end], "\n")
-					if squash.Replace(shown) != squash.Replace(b.source) {
-						t.Fatalf("%s %s/%s at %d: lines %d-%d show\n%s\nnot\n%s", name, p.Lang, p.Slug, width, b.start, b.end, shown, b.source)
+					doc, err := renderDocument(md, width, "rose-pine")
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(doc.blocks) != len(index.blocks) {
+						t.Fatalf("%s %s/%s at %d: located %d of %d blocks", name, p.Lang, p.Slug, width, len(doc.blocks), len(index.blocks))
+					}
+					lines := strings.Split(ansi.Strip(doc.text), "\n")
+					for _, b := range doc.blocks {
+						if b.math {
+							continue // typeset, so its rows don't show the source
+						}
+						shown := strings.Join(lines[b.start:b.end], "\n")
+						if squash.Replace(shown) != squash.Replace(b.source) {
+							t.Fatalf("%s %s/%s at %d: lines %d-%d show\n%s\nnot\n%s", name, p.Lang, p.Slug, width, b.start, b.end, shown, b.source)
+						}
 					}
 				}
-			}
+			})
 		}
 	}
 }
 
 func TestCopyAndJumpBetweenCodeBlocks(t *testing.T) {
+	shortNotes(t)
 	c := fixtureCatalog(t)
 	p, _ := c.resolve("server-setup", en)
 	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 80, 20)

@@ -33,20 +33,23 @@ func sourceLines(body string) []string {
 func TestEveryPostSourceFitsAndRoundTrips(t *testing.T) {
 	for name, c := range corpora(t) {
 		for _, p := range c.Posts {
-			want := sourceLines(p.Body)
-			for _, width := range []int{40, 60, 80, 120} {
-				for _, th := range themes {
-					out := renderSource(p.Body, width, th.Key)
-					assertWidth(t, out, width)
-					if fitWidth(out, width) != out {
-						t.Fatalf("final guard changed source: %s %s/%s at %d (%s)", name, p.Lang, p.Slug, width, th.Key)
-					}
-					got := joinContinuations(out)
-					if strings.Join(got, "\n") != strings.Join(want, "\n") {
-						t.Fatalf("%s %s/%s at %d: source lines not recoverable", name, p.Lang, p.Slug, width)
+			t.Run(fmt.Sprintf("%s/%s/%s", name, p.Lang, p.Slug), func(t *testing.T) {
+				t.Parallel()
+				want := sourceLines(p.Body)
+				for _, width := range []int{40, 60, 80, 120} {
+					for _, th := range themes {
+						out := renderSource(p.Body, width, th.Key)
+						assertWidth(t, out, width)
+						if fitWidth(out, width) != out {
+							t.Fatalf("final guard changed source: %s %s/%s at %d (%s)", name, p.Lang, p.Slug, width, th.Key)
+						}
+						got := joinContinuations(out)
+						if strings.Join(got, "\n") != strings.Join(want, "\n") {
+							t.Fatalf("%s %s/%s at %d: source lines not recoverable", name, p.Lang, p.Slug, width)
+						}
 					}
 				}
-			}
+			})
 		}
 	}
 }

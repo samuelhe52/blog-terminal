@@ -3,9 +3,13 @@
 ```sh
 go vet ./...
 go test ./...
-go test -race ./...
+go test -race ./...    # corpus tests check only the fixture
 go test -short ./...   # skip the test that builds and runs the binary
 ```
+
+Under the race detector, the corpus tests skip the live posts (see below).
+Rendering a post is single-threaded, so the detector finds nothing there, and
+it makes the live posts take minutes. Run plain `go test ./...` to check them.
 
 ## Fixture blog
 
@@ -32,9 +36,10 @@ Update them when you change the fixture on purpose.
 ## Checking the live posts
 
 Corpus-wide tests also run against real content when `BLOG_CONTENT_DIR`
-is set or a `./content` link exists (see the README): every post must fit at 40, 60, 80, and 120 columns in a dark and a
-light theme, and the final overflow guard must change nothing at 60, 80, and
-120 columns in every theme. Source mode is checked against the same posts.
+is set or a `./content` link exists (see the README): every post must fit at 40, 60, 80, and 120 columns in every theme, and the
+final overflow guard must change nothing at 60, 80, and 120 columns. Source
+mode is checked against the same posts. Under `-race`, these tests check only
+the fixture.
 
 ```sh
 ln -s ../Blog/src/content/posts content   # once
@@ -75,12 +80,14 @@ apply, and cancel, theme and color-profile
 messages, cache size, resizing, and very small windows.
 
 **Rendering.** Every fixture post is rendered at 40, 60, 80, and 120
-columns in a dark and a light theme, and every line is checked to fit. Width is measured in
-display cells, with East Asian wide characters counting as two. Every post is
-also rendered at 60, 80, and 120 columns to check that the final overflow
-guard in `layout.go` changes **nothing**, which confirms that prose, quotes,
-code, and tables already fit before the guard runs. Both checks also cover
-the live posts when `BLOG_CONTENT_DIR` is set (see above).
+columns in every theme, and every line is checked to fit. Width is measured in
+display cells, with East Asian wide characters counting as two. At 60, 80, and
+120 columns the final overflow guard in `layout.go` must also change
+**nothing**, which confirms that prose, quotes, code, and tables already fit
+before the guard runs. At 40 columns the guard may wrap, and the cached output,
+guard included, must fit. These checks also cover the live posts when
+`BLOG_CONTENT_DIR` is set (see above). Each post runs as its own parallel
+subtest.
 
 Source mode is checked the same way: every post's source fits at 40, 60,
 80, and 120 columns in every theme, the final guard changes nothing, and
