@@ -118,8 +118,8 @@ func TestVisualDrawing(t *testing.T) {
 				t.Fatal("drawing the selection changed the cached render")
 			}
 			hints := strings.Split(ansi.Strip(m.View().Content), "\n")
-			if last := hints[len(hints)-1]; !strings.Contains(last, "VISUAL") || !strings.Contains(last, "j/k extend") {
-				t.Fatalf("%d: hints %q", width, last)
+			if last := strings.Join(hints[len(hints)-2:], "\n"); !strings.Contains(last, "VISUAL") || !strings.Contains(last, "j/k extend") {
+				t.Fatalf("%d: footer %q", width, last)
 			}
 			// Rerendering moves lines around, so it ends the selection.
 			updated, _ := m.Update(tea.WindowSizeMsg{Width: width - 1, Height: 24})

@@ -526,7 +526,7 @@ func (m model) hintLine(status string, reader bool) string {
 		keys = []string{"j/k", "l open", "h back", "? help", "/ filter", "y link", "^L lang", "t theme"}
 	}
 	if reader {
-		keys = []string{"j/k", "h back", "? help", "/ search", "v visual", "s source", "c copy code", "y link", "[ ] code", "^D/^U", "gg/G", "^L lang", "t theme"}
+		keys = []string{"j/k", "h back", "? help", "/ search", "s source", "v visual", "t theme", "y link", "c copy code", "[ ] code", "^L lang", "^D/^U", "gg/G"}
 		if m.search.query != "" && !m.search.typing {
 			keys[3] = "n/N match"
 		}
@@ -566,11 +566,15 @@ func (m model) chrome() (string, string) {
 			header += "\n" + m.accent(m.notice())
 		}
 		header += "\n" + rule
-		link := m.muted(m.article.URL)
+		link, status := m.muted(m.article.URL), m.readerStatus()
 		if m.search.typing {
 			link = m.search.input.View()
+		} else if right := strings.TrimRight(status, " "); ansi.StringWidth(m.article.URL)+2+ansi.StringWidth(right) <= m.width {
+			// Leave the hint line to the keys when the status fits beside the URL.
+			link += strings.Repeat(" ", m.width-ansi.StringWidth(m.article.URL)-ansi.StringWidth(right)) + right
+			status = ""
 		}
-		footer := rule + "\n" + link + "\n" + m.hintLine(m.readerStatus(), true)
+		footer := rule + "\n" + link + "\n" + m.hintLine(status, true)
 		return fitWidth(header, m.width), fitWidth(footer, m.width)
 	}
 	location := "/"

@@ -52,5 +52,5 @@ Lecture 1: Knowledge
   Further reading is linked from the course page                              
   https://example.com/course/lecture-1.                                       
 ────────────────────────────────────────────────────────────────────────────────
-https://blog.konakona.dev/en/posts/course-notes/lecture-1-knowledge/
-  0%  j/k · h back · ? help · / search · v visual · s source · c copy code
+https://blog.konakona.dev/en/posts/course-notes/lecture-1-knowledge/          0%
+j/k · h back · ? help · / search · s source · v visual · t theme · y link · gg/G

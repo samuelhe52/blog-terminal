@@ -61,5 +61,5 @@ konakona · blog.konakona.dev                                                中
   zₜ = zₜ₋₁ + φ(kₜ)，每一步的成本都与已经生成的长度无关，这正是它被称为“像循环
   神经网络一样运行的 Transformer”的原因。                                     
 ────────────────────────────────────────────────────────────────────────────────
-https://blog.konakona.dev/zh/posts/attention-notes/
-  0%  j/k · h back · ? help · / search · v visual · s source · c copy code
+https://blog.konakona.dev/zh/posts/attention-notes/                           0%
+j/k · h back · ? help · / search · s source · v visual · t theme · y link · gg/G

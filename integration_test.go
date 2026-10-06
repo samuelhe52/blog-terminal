@@ -136,3 +136,51 @@ func TestImagesKeepCodeBlockPositions(t *testing.T) {
 		t.Fatalf("yanked %q", got)
 	}
 }
+
+func TestSourceModeWrapsWordsAndYanksSource(t *testing.T) {
+	c := fixtureCatalog(t)
+	p, _ := c.resolve("attention-notes", en)
+	m := newModel(c, en, "rose-pine", colorprofile.TrueColor, 60, 30)
+	m.open(p)
+	m, _ = press(m, "s")
+	lines := strings.Split(ansi.Strip(m.doc.text), "\n")
+	source := strings.Split(strings.Trim(cleanText(p.Body), "\n"), "\n")
+	// English prose breaks between words: a row that continues on the next
+	// ends with a space, unless it is a single word too wide to fit.
+	for i := 0; i+1 < len(lines); i++ {
+		next := strings.TrimLeft(lines[i+1], " ")
+		row := strings.TrimPrefix(strings.TrimLeft(lines[i], " "), "↪ ")
+		// A row with no space in it is one word wider than the window.
+		if strings.HasPrefix(next, "↪ ") && strings.Contains(strings.TrimSpace(row), " ") && !strings.HasSuffix(row, " ") {
+			t.Fatalf("row %d breaks inside a word: %q / %q", i, lines[i], lines[i+1])
+		}
+	}
+	// A selection over any rows copies whole source lines, spaces included.
+	all := m.doc.yank(0, len(lines)-1)
+	if all != strings.Join(source, "\n") {
+		t.Fatalf("yanking everything gave\n%s", all)
+	}
+	wrapped := -1
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimLeft(line, " "), "↪ ") {
+			wrapped = i
+			break
+		}
+	}
+	if wrapped < 0 {
+		t.Fatal("no wrapped rows; the test checks nothing")
+	}
+	got := m.doc.yank(wrapped, wrapped)
+	if !slicesContains(source, got) || !strings.Contains(got, " ") {
+		t.Fatalf("yanking a continuation row gave %q, not a source line", got)
+	}
+}
+
+func slicesContains(lines []string, s string) bool {
+	for _, l := range lines {
+		if l == s {
+			return true
+		}
+	}
+	return false
+}

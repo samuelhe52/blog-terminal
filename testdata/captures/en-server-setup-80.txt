@@ -47,5 +47,5 @@ Setting Up a Two-Node Inference Server
         return all(w.health() == "ok" for w in workers)  # a deliberately lo  
     ↪     ng comment that will not fit in narrow terminals                    
 ────────────────────────────────────────────────────────────────────────────────
-https://blog.konakona.dev/en/posts/server-setup/
-  0%  j/k · h back · ? help · / search · v visual · s source · c copy code
+https://blog.konakona.dev/en/posts/server-setup/                              0%
+j/k · h back · ? help · / search · s source · v visual · t theme · y link · gg/G

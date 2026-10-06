@@ -198,8 +198,8 @@ func TestSourceMode(t *testing.T) {
 	if !m.source || !strings.Contains(ansi.Strip(m.View().Content), "2026-06-30 · Source") {
 		t.Fatal("s must show the source with a header indicator")
 	}
-	if !strings.Contains(ansi.Strip(m.viewport.GetContent()), "[Pitfalls and fixes](/en/p") || len(m.doc.blocks) != 3 {
-		t.Fatalf("source view or its code blocks missing: %d %s", len(m.doc.blocks), ansi.Strip(m.viewport.GetContent()))
+	if !strings.Contains(ansi.Strip(m.viewport.GetContent()), "](/en/posts/server-setup/#pitfalls-and-fixes)") || len(m.doc.codeBlocks()) != 3 {
+		t.Fatalf("source view or its code blocks missing: %d %s", len(m.doc.codeBlocks()), ansi.Strip(m.viewport.GetContent()))
 	}
 	if len(m.cache.values) != 2 {
 		t.Fatalf("rendered and source output must be cached separately: %d", len(m.cache.values))

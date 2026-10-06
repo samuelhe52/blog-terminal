@@ -117,14 +117,19 @@ The header shows the domain on the left and the current language preference
 (`中文` or `English`) on the right. Article metadata shows only the date.
 
 In listings, long descriptions are shortened. In the reader, long titles
-wrap. The footer shows the article's web URL and the scroll position as a
-percentage.
+wrap. The footer shows the article's web URL with the reader's status at the
+right of the same line: the scroll position as a percentage, the search's
+`match i/N`, or the size of a visual selection. When the URL is too long to
+share its line, the status moves to the start of the hint line.
 
 When the window is resized or the translation is switched, the article is
 reflowed and the reader scrolls to roughly the same percentage.
 
 Key hints in the footer always fit on one line. On narrow windows, less
-important hints are dropped, but the keys themselves still work.
+important hints are dropped, but the keys themselves still work and `?`
+lists them all. In the reader, `s source` still fits at 60 columns and
+`t theme` and `y link` at 80; the code-block keys and page motions only
+show in wider windows.
 
 ## Markdown preprocessing
 
@@ -238,12 +243,18 @@ carry state from one line to the next. The rules approximate CommonMark
 rather than parse it, so unusual Markdown can be colored wrongly, but the
 text itself is never changed.
 
-Long lines wrap at the window width the same way code does, at character
-boundaries by display width, keeping the line's indentation and marking
-continuations with a dim `↪`. There is no margin, so joining each `↪` row
-to the line above it (after the repeated indentation) gives back the
-original line. Each fenced block's rows, from opening to closing fence, and
-the text between the fences are recorded on the model as `codeBlocks`.
+Long lines wrap at the window width by display width, keeping the line's
+indentation and marking continuations with a dim `↪`. Rows break after a
+space or between CJK characters, and inside a word only when the word is
+wider than a row. Each row is a contiguous part of the line, with the space
+at a break left at the end of the row, and there is no margin, so joining
+each `↪` row to the line above it (after the repeated indentation) gives
+back the original line.
+
+Every row is also mapped to its source line, as code blocks are in the
+rendered view, so a selection copies whole source lines exactly as written.
+The code inside each fence is a block for `c`, `[`, and `]`; the rest of the
+source, fences included, is marked as prose, which only selections use.
 
 Switching keeps the same part of the post on screen. Headings found in both
 the rendered article and the source anchor the position, and rows between

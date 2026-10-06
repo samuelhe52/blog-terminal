@@ -70,5 +70,5 @@ konakona · blog.konakona.dev                            中文
   都与已经生成的长度无关，这正是它被称为“像循环神经网络一 
   样运行的 Transformer”的原因。                           
 ────────────────────────────────────────────────────────────
-https://blog.konakona.dev/zh/posts/attention-notes/
-  0%  j/k · h back · ? help · / search · v visual · s source
+https://blog.konakona.dev/zh/posts/attention-notes/       0%
+j/k · h back · ? help · / search · s source · v visual

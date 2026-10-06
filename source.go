@@ -52,6 +52,7 @@ type sourceSegment struct {
 
 type sourceLayout struct {
 	lines    []string // source lines, tabs expanded as in code blocks
+	raw      []string // source lines as written, for copying
 	classes  [][]sourceClass
 	segments [][]sourceSegment
 	first    []int // the row each line starts on
@@ -77,6 +78,7 @@ func layoutSource(body string, width int) sourceLayout {
 		wasFenced := st.fence != 0
 		classes, heading := st.classify(line)
 		l.lines = append(l.lines, line)
+		l.raw = append(l.raw, raw)
 		l.classes = append(l.classes, classes)
 		l.first = append(l.first, l.rows)
 		l.segments = append(l.segments, wrapSource(line, width))
@@ -106,60 +108,83 @@ func layoutSource(body string, width int) sourceLayout {
 	return l
 }
 
-// codeBlocks lists the code inside each fence, between the fence rows, for
-// c, [ and ] and for copying selections (codeblocks.go).
+// codeBlocks maps every row to its source line, so a selection copies the
+// lines as written. Code inside each fence is a block for c, [ and ]; the
+// rest, fences included, is prose that only selections copy.
 func (l sourceLayout) codeBlocks() []codeBlock {
 	var blocks []codeBlock
-	for _, sb := range l.blocks {
-		if sb.first >= sb.last {
-			continue
+	add := func(first, last int, source string, prose bool) {
+		if first >= last {
+			return
 		}
-		b := codeBlock{start: l.first[sb.first], source: sb.Text}
-		for k := sb.first; k < sb.last; k++ {
+		b := codeBlock{start: l.first[first], source: source, prose: prose}
+		for k := first; k < last; k++ {
 			for range l.segments[k] {
-				b.lines = append(b.lines, k-sb.first)
+				b.lines = append(b.lines, k-first)
 			}
 		}
 		b.end = b.start + len(b.lines)
 		blocks = append(blocks, b)
 	}
+	next := 0
+	for _, sb := range l.blocks {
+		add(next, sb.first, strings.Join(l.raw[next:sb.first], "\n"), true)
+		add(sb.first, sb.last, sb.Text, false)
+		next = max(next, sb.last)
+	}
+	add(next, len(l.raw), strings.Join(l.raw[next:], "\n"), true)
 	return blocks
 }
 
-// wrapSource soft-wraps a line exactly like a code line and reports where
-// each row's text came from, so it can be colored after wrapping.
+// wrapSource soft-wraps a line and reports where each row's text came from,
+// so it can be colored after wrapping. Rows break after spaces and between
+// CJK characters, and inside a word only when it is wider than a row. Each
+// row is a contiguous part of the line, so joining the rows (after the "↪ "
+// marker and repeated indentation) gives back the line exactly.
 func wrapSource(line string, width int) []sourceSegment {
-	parts := strings.Split(wrapCodeLine(line, width), "\n")
-	if len(parts) == 1 {
+	if ansi.StringWidth(line) <= width {
 		return []sourceSegment{{start: 0, end: len(line)}}
 	}
 	marker := "↪ "
 	if width <= 2 {
 		marker = ""
 	}
-	// wrapCodeLine repeats the indentation unless it leaves no room; try both.
-	lead := line[:len(line)-len(strings.TrimLeft(line, " "))]
-	for _, indent := range []string{lead, ""} {
-		segments := make([]sourceSegment, 0, len(parts))
-		pos := 0
-		for i, part := range parts {
-			prefix := ""
-			if i > 0 {
-				prefix = marker + indent
+	indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
+	if len(indent)+4 > width {
+		indent = ""
+	}
+	var segments []sourceSegment
+	prefix := ""
+	start := 0
+	for start < len(line) {
+		room := max(1, width-ansi.StringWidth(prefix))
+		end, cells, brk := start, 0, -1
+		var prev rune
+		for end < len(line) {
+			r, size := utf8.DecodeRuneInString(line[end:])
+			w := ansi.StringWidth(string(r))
+			if end > start && (prev == ' ' && r != ' ' || cjkBreakable(prev, r)) {
+				brk = end
 			}
-			text, ok := strings.CutPrefix(part, prefix)
-			if !ok || !strings.HasPrefix(line[pos:], text) {
-				segments = nil
+			if cells+w > room {
 				break
 			}
-			segments = append(segments, sourceSegment{prefix: prefix, start: pos, end: pos + len(text)})
-			pos += len(text)
+			cells += w
+			prev = r
+			end += size
 		}
-		if segments != nil && pos == len(line) {
-			return segments
+		if end < len(line) && brk > start {
+			end = brk
 		}
+		if end == start { // a character wider than the row
+			_, size := utf8.DecodeRuneInString(line[end:])
+			end += size
+		}
+		segments = append(segments, sourceSegment{prefix: prefix, start: start, end: end})
+		start = end
+		prefix = marker + indent
 	}
-	return []sourceSegment{{start: 0, end: len(line)}}
+	return segments
 }
 
 func (l sourceLayout) render(t theme) string {

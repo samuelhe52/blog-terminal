@@ -27,6 +27,7 @@ type codeBlock struct {
 	lines      []int  // source line shown on each rendered line
 	source     string // the code exactly as written, without the last newline
 	math       bool   // display math, which c, [ and ] skip
+	prose      bool   // source-mode text outside code, which c, [ and ] skip
 }
 
 // codeIndex collects the code blocks wrapCode lays out, in document order.
@@ -226,11 +227,12 @@ func (r rendered) blockAt(line int) *codeBlock {
 	return nil
 }
 
-// codeBlocks lists the blocks c, [ and ] work on: code, not display math.
+// codeBlocks lists the blocks c, [ and ] work on: code, not display math
+// or source-mode prose.
 func (r rendered) codeBlocks() []codeBlock {
 	var code []codeBlock
 	for _, b := range r.blocks {
-		if !b.math {
+		if !b.math && !b.prose {
 			code = append(code, b)
 		}
 	}
