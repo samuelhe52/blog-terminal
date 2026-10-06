@@ -72,8 +72,8 @@ func newModel(c *catalog, lang language, theme string, profile colorprofile.Prof
 	}
 	m.viewport = viewport.New(viewport.WithWidth(m.width), viewport.WithHeight(max(1, m.height-8)))
 	m.filter = textinput.New()
-	m.filter.Prompt, m.filter.Placeholder, m.filter.CharLimit = "/ ", "Search posts…", 120
-	m.filter.SetWidth(max(1, m.width-4))
+	m.filter.Prompt, m.filter.Placeholder, m.filter.CharLimit = "Filter: ", "Search posts…", 120
+	m.filter.SetWidth(max(1, m.width-10))
 	m.filter.SetVirtualCursor(true)
 	m.styleFilter()
 	m.refreshListing()
@@ -140,7 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, min(msg.Width, 512)), max(1, min(msg.Height, 256))
-		m.filter.SetWidth(max(1, m.width-4))
+		m.filter.SetWidth(max(1, m.width-10))
 		m.renderArticle(true)
 		return m, nil
 	case tea.ColorProfileMsg:
