@@ -11,6 +11,8 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `content.go` | Loading, validating, and pairing posts; building folders |
 | `markdown.go` | Rewriting Markdown into a form that renders well in a terminal |
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
+| `images.go` | Loading images, laying them out, and tracking what each session has sent |
+| `kitty.go` | Kitty graphics protocol commands, placeholder cells, and terminal detection |
 | `model.go` | The per-session Bubble Tea model |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
@@ -102,7 +104,8 @@ display well in a terminal. It leaves fenced code, indented code, and inline
 code untouched.
 
 - **Images.** Raw HTML `<img>` tags become an `[Image: alt]` caption followed
-  by an absolute URL.
+  by an absolute URL. When the session can draw images, an image block is
+  placed before the caption (see [Images](#images)).
 - **Links.** Relative link and reference targets are resolved against the
   article's web URL, so they work outside the site.
 - **Inline math** becomes inline code, keeping its `$` delimiters and TeX
@@ -148,6 +151,66 @@ styling.
 Each session caches up to 16 rendered articles. The cache key is the slug,
 the language actually shown, the width, the theme, and the client's color
 profile.
+
+## Images
+
+Images are drawn with the Kitty graphics protocol's Unicode placeholders.
+The image is sent once, out of band, with a virtual placement of a fixed
+number of cells. Every cell it covers then holds U+10EEEE followed by two
+diacritics for its row and column, and the cell's foreground color carries
+the image id. These cells are ordinary one-cell text, so they scroll in the
+viewport and pass through Bubble Tea's cell renderer like any other text.
+Sixel, iTerm2 images, and half-block approximations are not used.
+
+**Loading.** At startup, `images.go` runs each post through the same
+preprocessing as rendering to list its image sources, so references inside
+code are ignored. Relative sources resolve against the post's directory and
+site-absolute ones against `--assets`. Both are checked after resolving
+symlinks, so neither `..` nor a link can leave the root. Remote sources are
+never fetched. Files over 32 MB or 40 megapixels are skipped. SVGs go through
+`rsvg-convert` at twice their size, because the pure-Go rasterizers can't
+draw the text in the Blog's diagrams. Each image is scaled down to at most
+1280 pixels on its longer side, encoded as PNG in base64, and registered
+once. Translations that share an image share one copy. All images together
+are limited to 64 MB. Problems are logged and the image keeps its caption.
+
+**Detection.** Each session sends an XTVERSION query (`CSI > q`) at startup.
+If the reply names kitty 0.28 or later, or Ghostty, it sends a graphics query
+for a 1×1 image, and images are turned on when the terminal answers `OK`.
+Nothing waits for these replies: articles render as captions until the
+answer arrives, and an open article is redrawn then. Other terminals never
+receive a graphics command. WezTerm, Konsole, and others support parts of
+the graphics protocol but print placeholders as text, so a positive graphics
+query alone is not enough. tmux answers XTVERSION with its own name and
+screen doesn't answer, so images stay off inside both. Images also need at
+least 256 colors, because the image id is a 256-color index.
+
+**Layout.** With images on, preprocessing puts a one-line marker paragraph
+before each image's caption. A Markdown image only gets one when it is alone
+on its line. The marker passes through Glamour, the width guard, and color
+adaptation unchanged, and is cached like the rest of the article. When the
+article is shown, the session replaces each marker with rows of placeholder
+cells, keeping any quote prefix. The size depends only on the space left on
+the line: an image is as wide as the text allows, never wider than its
+natural size at an assumed 8 pixels per column, and at most 20 rows tall.
+Cells are assumed to be twice as tall as they are wide; the terminal fits the
+image into its box keeping the aspect ratio, so a different cell shape only
+adds a margin. Below 8 columns only the caption is shown.
+
+**Per session.** Image ids are 16–255, chosen per session, and are written
+as 256-color indexes so that both TrueColor and 256-color output keep them
+exactly. The placeholders are inserted after the article's colors have been
+adapted to the client, so adaptation can't change them. Each image is sent
+when an article that uses it is first shown. Resizing the window only
+replaces the placement (same image and placement id), and reopening the
+article sends nothing. A session keeps at most 240 images and 128 MB of
+decoded pixels in the terminal, well under kitty's 320 MB quota, so the
+terminal doesn't evict images still on screen. Beyond that, the least
+recently shown images that aren't on screen are deleted from the terminal.
+
+**Typeset images.** `newImageAsset(img image.Image, cols int)` registers any
+image, such as a rendered formula, and `(*imagePass).block` returns the block
+to put before its fallback text during preprocessing.
 
 ## Theme detection
 
@@ -223,8 +286,14 @@ per-client terminal settings are preserved.
 **Rendering**
 
 - Math is shown as LaTeX source, not typeset.
-- Images are shown as captions and links, not drawn in the terminal. Other
-  raw HTML is left to Glamour.
+- Images are drawn only in kitty and Ghostty, and elsewhere are shown as
+  captions and links. Other raw HTML is left to Glamour.
+- A Markdown image that shares its line with text, or sits in a list or
+  quote, is shown as a caption. Reference-style images are too.
+- An image used twice in one article at different indents is drawn at the
+  smaller size both times, since each image has one placement.
+- Transparent images are drawn over the terminal's background, so dark lines
+  on a transparent background are hard to see on a dark theme.
 - Local image paths such as NITP's `imgs/nitp-overview.png` are turned into
   absolute URLs relative to the article. Astro may publish these images
   under hashed asset URLs instead, so the links may not work. The reader
@@ -254,3 +323,5 @@ per-client terminal settings are preserved.
 
 - Colors, fonts, and OSC 11 replies have only been checked automatically.
   They still need to be reviewed by eye in several SSH clients.
+- Images have been checked against the byte stream sent over SSH and against
+  Ghostty's replies, but not yet by eye in kitty or Ghostty.

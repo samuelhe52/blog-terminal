@@ -20,6 +20,7 @@ own server.
 | `/usr/local/bin/blog-terminal` | The binary |
 | `/usr/local/libexec/blog-terminal-update` | `update.sh` |
 | `/srv/blog-terminal/posts` | The content directory, with `zh/` and `en/` |
+| `/srv/blog-terminal/public` | The site's static files, for images with paths such as `/images/a.png` (optional) |
 | `/srv/blog-terminal/deployed` | Any file; touch it after updating the posts |
 | `/var/lib/blog-terminal/host_ed25519` | The host key, created on first start |
 
@@ -45,15 +46,20 @@ sudo systemctl enable --now blog-terminal.service blog-terminal-reload.path
 sudo systemctl enable --now blog-terminal-update.timer   # optional
 ```
 
-`blog-terminal.service` passes only `--content`, `--listen`, and
-`--host-key`. Add `--site-url` and `--title` to its `ExecStart` for your
+`blog-terminal.service` passes only `--content`, `--assets`, `--listen`,
+and `--host-key`. Add `--site-url` and `--title` to its `ExecStart` for your
 blog. Open port 2222 in your firewall.
+
+To draw images in kitty and Ghostty, copy the site's static files (for an
+Astro site, its `public/` directory) to `/srv/blog-terminal/public`, and
+install `rsvg-convert` for SVGs (`sudo apt install librsvg2-bin` on Debian
+and Ubuntu). Both are optional: without them, images are shown as captions.
 
 ## Updating posts
 
-Posts are read once at startup. After copying new posts into
-`/srv/blog-terminal/posts`, touch the trigger file and the path unit restarts
-the reader:
+Posts and images are read once at startup. After copying new posts into
+`/srv/blog-terminal/posts` (and images into `/srv/blog-terminal/public`),
+touch the trigger file and the path unit restarts the reader:
 
 ```sh
 sudo touch /srv/blog-terminal/deployed

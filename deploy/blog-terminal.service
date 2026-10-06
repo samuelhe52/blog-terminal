@@ -6,6 +6,7 @@ Wants=network-online.target
 [Service]
 ExecStart=/usr/local/bin/blog-terminal serve \
     --content /srv/blog-terminal/posts \
+    --assets /srv/blog-terminal/public \
     --listen :2222 \
     --host-key /var/lib/blog-terminal/host_ed25519
 Restart=on-failure
@@ -16,9 +17,13 @@ StateDirectory=blog-terminal
 StateDirectoryMode=0700
 UMask=0077
 
-ReadOnlyPaths=/srv/blog-terminal/posts
+ReadOnlyPaths=/srv/blog-terminal/posts -/srv/blog-terminal/public
 NoExecPaths=/
 ExecPaths=/usr/local/bin/blog-terminal
+# rsvg-convert (librsvg2-bin) draws SVG images once at startup. It is
+# dynamically linked, so it also needs its libraries. Drop this line to show
+# SVGs as captions instead.
+ExecPaths=-/usr/bin/rsvg-convert -/usr/lib -/lib -/lib64
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes

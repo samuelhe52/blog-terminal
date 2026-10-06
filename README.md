@@ -138,6 +138,7 @@ as do `ctrl+n`/`ctrl+p` and `ctrl+e`/`ctrl+y` for down and up.
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--content` | `$BLOG_CONTENT_DIR`, then `./content` | Posts directory containing `zh/` and `en/` (required) |
+| `--assets` | `$BLOG_ASSETS_DIR` | Directory that site-absolute image paths such as `/images/a.png` resolve against, usually the site's `public/` |
 | `--site-url` | `https://blog.konakona.dev` | Public site that article links point to (`BLOG_SITE_URL`) |
 | `--title` | `konakona` | Blog name in the header (`BLOG_TITLE`) |
 | `--lang` | from session | `zh` (or `zh-CN`) or `en`; overrides each visitor's locale (`BLOG_TERMINAL_LANG`) |
@@ -164,10 +165,33 @@ Pine until a reply arrives, or Rosé Pine Dawn if the background is light. Not
 every terminal replies; `t` opens a picker that previews each theme across the
 whole screen. The choice lasts for the session.
 
+## Images
+
+In kitty 0.28 or later and in Ghostty, posts show their images above the
+caption and link. The reader asks the terminal for its name and checks that
+it accepts images; until both replies arrive, and in every other terminal,
+images are shown as captions only. Over SSH this works from kitty or Ghostty
+directly, not from inside tmux or screen.
+
+Images are read from disk once at startup and never fetched over the
+network:
+
+- Relative paths, such as `imgs/diagram.png`, resolve against the post's
+  directory and must stay inside `--content`.
+- Site-absolute paths, such as `/images/diagram.png`, resolve against
+  `--assets`. Without `--assets` they are shown as captions.
+- Remote URLs are always shown as captions.
+
+PNG, JPEG, GIF (first frame), and WebP are supported. SVG images need
+`rsvg-convert` (from librsvg) on the `PATH` when the reader starts. An image
+that is missing or can't be read is logged at startup and shown as a caption.
+
 ## Differences from the website
 
 - Math is shown as LaTeX source rather than typeset.
-- Images are shown as captions with links.
+- Images are drawn only in kitty (0.28 or later) and Ghostty. Other
+  terminals, and terminals inside tmux or screen, show a caption with a
+  link instead. See [Images](#images).
 - Long code lines wrap with a `↪` marker instead of scrolling horizontally.
   Copy commands from the website rather than from the terminal.
 - Search matches titles and descriptions, not post content.
