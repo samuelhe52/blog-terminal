@@ -12,7 +12,10 @@ require (
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/ultraviolet v0.0.0-20260906173415-0277a179edd9
 	github.com/charmbracelet/x/ansi v0.11.8
-	github.com/yuin/goldmark v1.7.17
+	github.com/doug/termtex v0.0.0-20260918165034-c407d5cf5251
+	github.com/go-opentype/opentype v0.13.0
+	github.com/go-tex/math v0.50.0
+	github.com/yuin/goldmark v1.8.2
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.57.0
 	golang.org/x/image v0.46.0

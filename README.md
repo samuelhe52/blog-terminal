@@ -191,7 +191,10 @@ that is missing or can't be read is logged at startup and shown as a caption.
 
 ## Differences from the website
 
-- Math is shown as LaTeX source rather than typeset.
+- Math is typeset as Unicode text rather than drawn. Fractions, sums, and
+  matrices are laid out over several rows, and long formulas break before
+  `=` and other relations. A formula that can't be typeset, or doesn't fit
+  the window, is shown as LaTeX source.
 - Images are drawn only in kitty (0.28 or later) and Ghostty. Other
   terminals, and terminals inside tmux or screen, show a caption with a
   link instead. See [Images](#images).

@@ -72,8 +72,8 @@ func fenceAt(line string) (byte, int, bool) {
 	return s[0], n, n >= 3
 }
 
-// Code is passed through byte for byte. Math becomes literal inline code or a
-// fenced display block BEFORE Goldmark/Glamour can interpret TeX punctuation.
+// Code is passed through byte for byte. Math becomes inline code or a fenced
+// display block BEFORE Goldmark/Glamour can interpret TeX punctuation.
 func preprocess(body, base string) string {
 	return preprocessWith(body, base, nil)
 }
@@ -154,46 +154,9 @@ func preprocessWith(body, base string, images *imagePass) string {
 			}
 		}
 		if body[i] == '$' {
-			n := 1
-			if strings.HasPrefix(body[i:], "$$") {
-				n = 2
-			}
-			search := body[i+n:]
-			if n == 1 {
-				if end := strings.IndexByte(search, '\n'); end >= 0 {
-					search = search[:end]
-				}
-			}
-			end := -1
-			for at := 0; at < len(search); at++ {
-				if search[at] == '\\' {
-					at++
-					continue
-				}
-				if strings.HasPrefix(search[at:], strings.Repeat("$", n)) {
-					end = at
-					break
-				}
-			}
-			if end > 0 {
-				math := body[i : i+n+end+n]
-				if n == 2 {
-					math = strings.Trim(math[2:len(math)-2], "\n")
-					delim := "```"
-					for strings.Contains(math, delim) {
-						delim += "`"
-					}
-					out.WriteString("\n\n" + delim + "text\n" + math + "\n" + delim + "\n\n")
-				} else {
-					// Keep fitting formulas together during prose layout. The
-					// renderer restores ordinary spaces after line breaks are set.
-					out.WriteString(mathBreak + codeSpan(strings.NewReplacer(" ", "\u00a0", "-", nbHyphen).Replace(math)))
-					next, _ := utf8.DecodeRuneInString(body[i+n+end+n:])
-					if !strings.ContainsRune("，。、；：！？）】》」』”’.,;:!?)]}", next) {
-						out.WriteString(mathBreak)
-					}
-				}
-				i += n + end + n
+			if math, size := mathAt(body[i:], last); size > 0 {
+				out.WriteString(math)
+				i += size
 				continue
 			}
 		}
