@@ -1,27 +1,26 @@
 # blog-terminal
 
-Read the [konakona blog](https://blog.konakona.dev) over SSH.
+An SSH reader for the [konakona blog](https://blog.konakona.dev).
 
-blog-terminal is a small Go server that serves the blog's Markdown posts as a
-terminal UI. Visitors run `ssh`, browse the folders, and read posts in Chinese
-or English. They don't need to install anything or create an account. It's
-built on Charm's [Wish](https://github.com/charmbracelet/wish),
-[Bubble Tea](https://github.com/charmbracelet/bubbletea) and
-[Glamour](https://github.com/charmbracelet/glamour).
+blog-terminal serves the blog's Markdown posts as a terminal UI over SSH.
+Visitors connect with a plain `ssh` command and can browse folders, search,
+and read posts in Chinese or English without installing anything or
+authenticating. It is built on Charm's
+[Wish](https://github.com/charmbracelet/wish),
+[Bubble Tea](https://github.com/charmbracelet/bubbletea), and
+[Glamour](https://github.com/charmbracelet/glamour), and reads posts directly
+from a checkout of the [Blog repo](https://github.com/samuelhe52/Blog).
 
-The posts come straight from the [Blog repo](https://github.com/samuelhe52/Blog).
-No separate copy of the content is kept.
+## Running locally
 
-## Try it locally
-
-You need Go 1.27 and a checkout of the Blog repo next to this one.
+Requires Go 1.27 and a checkout of the Blog repo.
 
 ```sh
 go build -o blog-terminal .
 export BLOG_CONTENT_DIR=../Blog/src/content/posts
 
-./blog-terminal local    # open the reader in this terminal
-./blog-terminal serve    # or start an SSH server on 127.0.0.1:2222
+./blog-terminal local    # run the reader in the current terminal
+./blog-terminal serve    # run an SSH server on 127.0.0.1:2222
 ```
 
 With the server running, connect from another terminal:
@@ -30,72 +29,70 @@ With the server running, connect from another terminal:
 ssh -p 2222 localhost
 ```
 
-Any username works. The server doesn't ask for a password or key. On first
-start it creates a host key at `.ssh/host_ed25519`. Keep that file to keep
-the same host fingerprint.
+The server accepts any username without a password or key. On first start it
+generates a host key at `.ssh/host_ed25519`; keep this file to preserve the
+host fingerprint across restarts.
 
-Posts are loaded once at startup. If you edit a post, restart the server to
-see the change.
+Posts are loaded once at startup, so the server must be restarted to pick up
+edits.
 
 ## Keys
 
-Navigation works like vim. Press `?` in the app to see this list.
+Navigation follows vim conventions. Press `?` in the app to show the key list.
 
 | Keys | Action |
 | --- | --- |
 | `j` / `k` | Down / up |
-| `l` / `h` | Open / go back |
-| `gg` / `G` | Jump to top / bottom |
+| `l` / `h` | Open / back |
+| `gg` / `G` | First / last item or line |
 | `ctrl+d` / `ctrl+u` | Half page down / up |
 | `ctrl+f` / `ctrl+b`, `space` | Page down / up |
-| `5j`, `10G`, … | Repeat a motion or jump to line N |
-| `/` | Search titles and descriptions |
+| `5j`, `10G`, … | Repeat a motion, or go to line N |
+| `/` | Filter by title and description |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Toggle light / dark theme |
-| `q` / `esc` | Go back (`q` quits from the top level) |
+| `q` / `esc` | Back; `q` quits from the top level |
 | `ctrl+c` | Quit |
 
-Arrow keys, `enter`, `backspace`, `home`/`end` and `pgup`/`pgdn` work too.
+Arrow keys, `enter`, `backspace`, `home`/`end`, and `pgup`/`pgdn` also work.
 
 ## Options
 
-`local` and `serve` take the same flags. The SSH flags only matter for
-`serve`. Run `./blog-terminal serve --help` for the full list.
+`local` and `serve` accept the same flags; the SSH-related ones only apply to
+`serve`. See `./blog-terminal serve --help` for details.
 
-| Flag | Default | What it does |
+| Flag | Default | Description |
 | --- | --- | --- |
-| `--content` | `$BLOG_CONTENT_DIR` | Posts directory, the one containing `zh/` and `en/` (required) |
-| `--lang` | from the session | `zh` or `en` |
+| `--content` | `$BLOG_CONTENT_DIR` | Posts directory containing `zh/` and `en/` (required) |
+| `--lang` | from session | `zh` or `en` |
 | `--theme` | `auto` | `auto`, `dark`, or `light` |
 | `--listen` | `127.0.0.1:2222` | SSH listen address |
 | `--host-key` | `.ssh/host_ed25519` | Ed25519 host key path |
-| `--idle-timeout` | `5m` | Disconnect after this much inactivity |
-| `--max-duration` | `1h` | Longest allowed session |
-| `--max-sessions` | `32` | Open sessions across all clients |
-| `--max-connections` | `64` | TCP connections across all clients |
-| `--per-ip` | `4` | Concurrent connections per IP |
-| `--rate` | `12` | New connections per IP per minute |
+| `--idle-timeout` | `5m` | Disconnect after this long without input |
+| `--max-duration` | `1h` | Maximum session length |
+| `--max-sessions` | `32` | Maximum open sessions overall |
+| `--max-connections` | `64` | Maximum TCP connections overall |
+| `--per-ip` | `4` | Maximum concurrent connections per IP |
+| `--rate` | `12` | Maximum new connections per IP per minute |
 
-If `--lang` isn't set, the reader looks at `BLOG_TERMINAL_LANG`, then
-`LC_ALL`, then `LANG`. Any `zh*` locale picks Chinese and everything else
-picks English. To pass your locale over SSH, add `SendEnv LANG LC_ALL` to
-your SSH config.
+Without `--lang`, the language is taken from `BLOG_TERMINAL_LANG`, `LC_ALL`,
+or `LANG`, in that order. `zh*` locales select Chinese; anything else selects
+English. To forward your locale over SSH, add `SendEnv LANG LC_ALL` to your
+SSH client config.
 
-With `--theme auto`, the reader asks your terminal for its background color
-and starts in dark mode until it gets an answer. Some terminals never reply.
-Press `t` to switch manually.
+With `--theme auto`, the reader queries the terminal's background color and
+uses the dark theme until a reply arrives. Not every terminal replies; `t`
+switches the theme manually.
 
-## What to expect
+## Differences from the website
 
-Terminals have limits, so a few things look different from the website:
+- Math is shown as LaTeX source rather than typeset.
+- Images are shown as captions with links.
+- Long code lines wrap with a `↪` marker instead of scrolling horizontally.
+  Copy commands from the website rather than from the terminal.
+- Search matches titles and descriptions, not post content.
 
-- Math shows as LaTeX source and isn't typeset.
-- Images appear as a caption and a link.
-- Long code lines wrap and get a `↪` marker instead of scrolling sideways.
-  Copy commands from the web version, which has the original lines.
-- Search covers titles and descriptions only, not the full post text.
-
-The footer of each post links to the same post on the website.
+Each post's footer links to its page on the website.
 
 ## Development
 
@@ -104,14 +101,14 @@ go vet ./...
 go test ./...
 ```
 
-The tests run against a snapshot of the blog's posts in `testdata/posts/`,
-so you don't need a Blog checkout to run them. [docs/testing.md](docs/testing.md)
-explains how to refresh the snapshot and the reference captures.
-[docs/architecture.md](docs/architecture.md) covers how the code is organized.
+Tests run against a snapshot of the blog's posts in `testdata/posts/`, so a
+Blog checkout is not needed. See [docs/testing.md](docs/testing.md) for how to
+refresh the snapshot and the reference captures, and
+[docs/architecture.md](docs/architecture.md) for an overview of the code.
 
-Deployment to a public host isn't set up yet.
+Public deployment is not set up yet.
 
 ## License
 
-The code is MIT. The post snapshot and captures under `testdata/` are
-CC BY 4.0. See [LICENSE](LICENSE).
+Code is licensed under MIT. The post snapshot and captures under `testdata/`
+are licensed under CC BY 4.0. See [LICENSE](LICENSE).
