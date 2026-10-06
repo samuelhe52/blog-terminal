@@ -94,6 +94,15 @@ Other rendering tests cover:
 - the cell widths of math alphanumerics and combining accents
 - that every formula in the fixture (and the live posts, when available)
   typesets, with timing; display math may fall back only in narrow windows
+- math images: size, cropping, color and transparency, determinism under
+  concurrent use, errors for bad input, the SVG subset the rasterizer
+  accepts, and refusing tall assembled delimiters; every display formula in
+  the fixture and live posts is drawn at 16 and 32 pixels per em, with timing.
+  Set `MATH_IMAGE_DIR` to keep the PNGs for review:
+
+  ```sh
+  MATH_IMAGE_DIR=/tmp/math go test -run TestCorpusMathImages -v
+  ```
 - footer hints staying on one line at 40, 60, 80, and 120 columns
 - separate render caches per session
 - the dim `↪` marker on wrapped lines, and its absence on real line breaks

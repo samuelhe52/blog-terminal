@@ -12,6 +12,7 @@ imported from `charm.land/.../v2`. Exact versions are pinned in `go.mod` and
 | `markdown.go` | Rewriting Markdown into a form that renders well in a terminal |
 | `layout.go` | Rendering Markdown to ANSI text that fits the window |
 | `math.go` | Typesetting math as Unicode text |
+| `math_image.go` | Drawing display math as an image (not yet used by the reader) |
 | `model.go` | The per-session Bubble Tea model |
 | `server.go` | The Wish SSH server and which SSH requests it allows |
 | `limits.go` | Connection, session, and rate limits |
@@ -151,6 +152,28 @@ leaves a blank cell after each wide character, which is removed. A formula
 that spans several rows and contains a character whose terminal width
 differs from termtex's (such as `、` or an emoji in `\text{}`) is shown as
 source, because its rows would no longer line up.
+
+### Math images
+
+`math_image.go` can also draw a display formula as an image, for terminals
+that show graphics. The reader doesn't use it yet. `renderMathImage` typesets
+the formula with [go-tex/math](https://github.com/go-tex/math), which uses
+the OpenType MATH table of an embedded STIX Two Math font and writes SVG made
+of filled glyph outlines and rules. A small rasterizer built on
+`golang.org/x/image/vector` draws that SVG. It accepts only the elements
+go-tex/math writes and reports anything else as an error. The image is
+cropped to its ink, drawn in the caller's color on a transparent background,
+and depends only on the formula, color, and size. Everything is pure Go.
+
+The font and go-tex/math's glyph cache are shared by all sessions. Both are
+read-only or guarded by a mutex, and the cache grows only with the pixel
+sizes in use, which are limited to 4–256 pixels per em.
+
+go-tex/math v0.50.0 builds a delimiter that is taller than the font's largest
+ready-made size (around a matrix of four or more rows, for example) from
+parts, and stacks the parts in the wrong places. `renderMathImage` detects
+these parts in the SVG and returns `errTallDelimiter` instead, so the caller
+can show the formula as text.
 
 ## Rendering
 
