@@ -187,6 +187,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filtering = false
 				m.filter.Blur()
 				return m, nil
+			// Move through matches without leaving the query.
+			case "down", "ctrl+n":
+				m.selected = min(m.selected+1, max(0, len(m.items)-1))
+				return m, nil
+			case "up", "ctrl+p":
+				m.selected = max(0, m.selected-1)
+				return m, nil
 			}
 			var cmd tea.Cmd
 			m.filter, cmd = m.filter.Update(msg)
@@ -504,7 +511,7 @@ var helpRows = [][2]string{
 	{"^D / ^U", "half page down / up"},
 	{"^F / ^B", "page down / up (also space, PgDn / PgUp)"},
 	{"5j, 10G, 3gg", "counts repeat a motion or pick a position"},
-	{"/", "filter posts (↵ apply, esc clear)"},
+	{"/", "filter posts (↓ ↑ move, ↵ apply, esc clear)"},
 	{"^L", "switch language 中文 / English"},
 	{"t", "toggle light / dark"},
 	{"q / esc", "back; q quits from the top level"},

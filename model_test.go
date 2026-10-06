@@ -140,6 +140,12 @@ func TestFilterLifecycleAndGlobalResults(t *testing.T) {
 			t.Fatal("root search must expose folder posts and their paths")
 		}
 		assertWidth(t, m.View().Content, width)
+		for _, key := range []string{"down", "down", "down", "up"} {
+			m, _ = press(m, key)
+		}
+		if !m.filtering || m.filter.Value() != "lecture" || m.selected != 1 {
+			t.Fatalf("arrows while filtering: selected %d, query %q", m.selected, m.filter.Value())
+		}
 		m, _ = press(m, "esc")
 		if m.filtering || m.filter.Focused() || m.filter.Value() != "" {
 			t.Fatal("Escape did not clear and close editing")

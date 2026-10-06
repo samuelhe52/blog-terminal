@@ -51,7 +51,7 @@ Navigation follows vim conventions. Press `?` in the app to show the key list.
 | `ctrl+d` / `ctrl+u` | Half page down / up |
 | `ctrl+f` / `ctrl+b`, `space` | Page down / up |
 | `5j`, `10G`, … | Repeat a motion, or go to line N |
-| `/` | Filter by title and description |
+| `/` | Filter by title and description; `↓`/`↑` move through matches |
 | `ctrl+l` | Switch between 中文 and English |
 | `t` | Toggle light / dark theme |
 | `q` / `esc` | Back; `q` quits from the top level |
